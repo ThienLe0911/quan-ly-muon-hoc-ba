@@ -218,4 +218,31 @@ describe('Tầng cơ sở dữ liệu libSQL/Turso & Migration (T02)', () => {
     expect(search).toContain('dang thu an');
     expect(search).toContain('gv_an');
   });
+
+  it('từ chối seed mật khẩu mặc định công khai trên Vercel (VERCEL=1) khi thiếu SEED_ADMIN_PASSWORD và mặc định mustChangePassword=1', async () => {
+    const prevVercel = process.env.VERCEL;
+    const prevPwd = process.env.SEED_ADMIN_PASSWORD;
+    const prevMust = process.env.SEED_ADMIN_MUST_CHANGE_PASSWORD;
+    try {
+      process.env.VERCEL = '1';
+      delete process.env.SEED_ADMIN_PASSWORD;
+      delete process.env.SEED_ADMIN_MUST_CHANGE_PASSWORD;
+
+      const { db } = await setupTestDb();
+      await expect(seedDatabase(db)).rejects.toThrow(/SEED_ADMIN_PASSWORD/);
+
+      process.env.SEED_ADMIN_PASSWORD = 'TruongTieuHoc#2026';
+      const seeded = await seedDatabase(db);
+      expect(seeded.adminCreated).toBe(true);
+      const admin = (await db.select().from(users).where(eq(users.role, 'ADMIN')).get())!;
+      expect(admin.mustChangePassword).toBe(1);
+    } finally {
+      if (prevVercel === undefined) delete process.env.VERCEL;
+      else process.env.VERCEL = prevVercel;
+      if (prevPwd === undefined) delete process.env.SEED_ADMIN_PASSWORD;
+      else process.env.SEED_ADMIN_PASSWORD = prevPwd;
+      if (prevMust === undefined) delete process.env.SEED_ADMIN_MUST_CHANGE_PASSWORD;
+      else process.env.SEED_ADMIN_MUST_CHANGE_PASSWORD = prevMust;
+    }
+  });
 });

@@ -34,6 +34,12 @@ export async function seedDatabase(db: AppDatabase): Promise<SeedResult> {
     return { adminCreated: false, adminUsername: existingAdmin.username };
   }
 
+  if (env.isVercel && !env.hasExplicitSeedAdminPassword) {
+    throw new Error(
+      'Thiếu biến môi trường SEED_ADMIN_PASSWORD trên Vercel: không cho phép khởi tạo tài khoản Admin đầu tiên bằng mật khẩu mặc định công khai.'
+    );
+  }
+
   const unit = 'Văn phòng';
   await db
     .insert(users)
@@ -68,15 +74,19 @@ const isDirectExecution =
 
 if (isDirectExecution) {
   void (async () => {
-    const { getDb, getLibsqlClient } = await import('./index');
-    const db = await getDb();
-    const result = await seedDatabase(db);
-    if (result.adminCreated) {
-      console.log(`Đã khởi tạo tài khoản Admin mặc định: ${result.adminUsername}`);
-    } else {
-      console.log(`Tài khoản Admin đã tồn tại (${result.adminUsername}), bỏ qua tạo mới.`);
+    const { createDbConnection } = await import('./index');
+    const env = getEnv();
+    const conn = await createDbConnection(env.tursoDatabaseUrl, env.tursoAuthToken);
+    try {
+      const result = await seedDatabase(conn.db);
+      if (result.adminCreated) {
+        console.log(`Đã khởi tạo tài khoản Admin mặc định: ${result.adminUsername}`);
+      } else {
+        console.log(`Tài khoản Admin đã tồn tại (${result.adminUsername}), bỏ qua tạo mới.`);
+      }
+      console.log('Đã đảm bảo cấu hình mặc định (default_loan_days=7, max_loan_days=30).');
+    } finally {
+      conn.client.close();
     }
-    console.log('Đã đảm bảo cấu hình mặc định (default_loan_days=7, max_loan_days=30).');
-    (await getLibsqlClient()).close();
   })();
 }

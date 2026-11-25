@@ -1,4 +1,4 @@
-> Status: Approved (2026-11-24)
+> Status: Validated (2026-11-25)
 
 # Spec: Quản lý Mượn – Trả Học Bạ Trường Tiểu Học
 

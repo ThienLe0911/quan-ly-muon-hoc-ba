@@ -85,8 +85,19 @@ export async function runMigrations(client: Client): Promise<string[]> {
   for (const migration of MIGRATIONS) {
     if (applied.has(migration.name)) continue;
 
+    let appliedNow = false;
     const tx = await client.transaction('write');
     try {
+      // Kiểm tra lại bên trong write transaction để tránh race condition khi 2 instance cold-start song song
+      const existingInTx = await tx.execute({
+        sql: 'SELECT 1 FROM _migrations WHERE name = ? LIMIT 1',
+        args: [migration.name],
+      });
+      if (existingInTx.rows.length > 0) {
+        await tx.commit();
+        continue;
+      }
+
       for (const stmt of migration.statements) {
         await tx.execute(stmt);
       }
@@ -95,6 +106,7 @@ export async function runMigrations(client: Client): Promise<string[]> {
         args: [migration.name, new Date().toISOString()],
       });
       await tx.commit();
+      appliedNow = true;
       newlyApplied.push(migration.name);
     } catch (err) {
       try {
@@ -105,7 +117,7 @@ export async function runMigrations(client: Client): Promise<string[]> {
       throw err;
     }
 
-    if (migration.name === '0001_turso_search_and_ratelimit.sql') {
+    if (appliedNow && migration.name === '0001_turso_search_and_ratelimit.sql') {
       await backfillSearchColumns(client);
     }
   }
@@ -120,14 +132,37 @@ const isDirectExecution =
 
 if (isDirectExecution) {
   void (async () => {
-    const { getLibsqlClient } = await import('./index');
-    const client = await getLibsqlClient();
-    const applied = await runMigrations(client);
-    console.log(
-      applied.length > 0
-        ? `Đã áp dụng migration: ${applied.join(', ')}`
-        : 'Cơ sở dữ liệu đã ở phiên bản migration mới nhất.'
+    const fs = await import('node:fs');
+    const path = await import('node:path');
+    const { createClient } = await import('@libsql/client');
+    const { getEnv } = await import('@/lib/env');
+
+    const env = getEnv();
+    const url = env.tursoDatabaseUrl;
+    if (url !== ':memory:' && url.startsWith('file:')) {
+      const dir = path.dirname(path.resolve(url.slice('file:'.length)));
+      fs.mkdirSync(dir, { recursive: true });
+    }
+
+    const client = createClient(
+      env.tursoAuthToken ? { url, authToken: env.tursoAuthToken } : { url }
     );
-    client.close();
+    try {
+      if (url === ':memory:' || url.startsWith('file:')) {
+        if (url.startsWith('file:')) {
+          await client.execute('PRAGMA journal_mode = WAL');
+          await client.execute('PRAGMA busy_timeout = 5000');
+        }
+        await client.execute('PRAGMA foreign_keys = ON');
+      }
+      const applied = await runMigrations(client);
+      console.log(
+        applied.length > 0
+          ? `Đã áp dụng migration: ${applied.join(', ')}`
+          : 'Cơ sở dữ liệu đã ở phiên bản migration mới nhất.'
+      );
+    } finally {
+      client.close();
+    }
   })();
 }

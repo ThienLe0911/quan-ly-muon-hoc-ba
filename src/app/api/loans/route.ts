@@ -70,9 +70,9 @@ export const GET = withApiErrorHandling(async (req: Request) => {
 
   if (auth.user.role === 'TEACHER') {
     conditions.push(eq(loanRecords.teacherId, auth.user.id));
-  } else if (teacherIdParam) {
+  } else if (teacherIdParam && /^\d+$/.test(teacherIdParam)) {
     const tid = Number.parseInt(teacherIdParam, 10);
-    if (Number.isFinite(tid) && tid > 0) {
+    if (tid > 0) {
       conditions.push(eq(loanRecords.teacherId, tid));
     }
   }
@@ -137,11 +137,7 @@ export const GET = withApiErrorHandling(async (req: Request) => {
   if (q) {
     const normQ = normalizeVietnameseText(q);
     const pattern = `%${escapeLikePattern(normQ)}%`;
-    const searchCond =
-      auth.user.role === 'ADMIN'
-        ? sql`${loanRecords.searchText} LIKE ${pattern} ESCAPE '\\'`
-        : sql`${loanRecords.recordIdentityKey} LIKE ${pattern} ESCAPE '\\'`;
-    conditions.push(searchCond);
+    conditions.push(sql`${loanRecords.searchText} LIKE ${pattern} ESCAPE '\\'`);
   }
 
   const db = await getDb();

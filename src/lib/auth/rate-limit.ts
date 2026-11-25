@@ -1,4 +1,4 @@
-import { eq, lte } from 'drizzle-orm';
+import { eq, lte, sql } from 'drizzle-orm';
 import { getActiveTestDb, getDb } from '@/db';
 import { loginRateLimits } from '@/db/schema';
 import { getEnv } from '@/lib/env';
@@ -19,7 +19,7 @@ export function getClientIp(req: Request): string {
 }
 
 export function buildLoginRateKey(req: Request, username: string): string {
-  return `${getClientIp(req)}:${username.trim().toLowerCase()}`;
+  return `ip:${getClientIp(req)}|${username.trim().toLowerCase()}`;
 }
 
 export function buildUsernameRateKey(username: string): string {
@@ -49,31 +49,20 @@ export async function isLoginRateLimited(
 
 export async function recordLoginFailure(key: string, now: number = Date.now()): Promise<void> {
   const db = await getDb();
-  const existing = await db
-    .select()
-    .from(loginRateLimits)
-    .where(eq(loginRateLimits.key, key))
-    .limit(1)
-    .get();
+  const nextResetAt = now + WINDOW_MS;
 
-  if (!existing || now >= existing.resetAt) {
-    // Dọn các bản ghi đã hết hạn để bảng luôn gọn nhẹ
-    await db.delete(loginRateLimits).where(lte(loginRateLimits.resetAt, now)).run();
-    await db
-      .insert(loginRateLimits)
-      .values({ key, failures: 1, resetAt: now + WINDOW_MS })
-      .onConflictDoUpdate({
-        target: loginRateLimits.key,
-        set: { failures: 1, resetAt: now + WINDOW_MS },
-      })
-      .run();
-    return;
-  }
-
+  // Dọn các bản ghi đã hết hạn và tăng bộ đếm bằng 1 câu SQL UPSERT nguyên tử (tránh lost update đa instance)
+  await db.delete(loginRateLimits).where(lte(loginRateLimits.resetAt, now)).run();
   await db
-    .update(loginRateLimits)
-    .set({ failures: existing.failures + 1 })
-    .where(eq(loginRateLimits.key, key))
+    .insert(loginRateLimits)
+    .values({ key, failures: 1, resetAt: nextResetAt })
+    .onConflictDoUpdate({
+      target: loginRateLimits.key,
+      set: {
+        failures: sql`CASE WHEN ${loginRateLimits.resetAt} <= ${now} THEN 1 ELSE ${loginRateLimits.failures} + 1 END`,
+        resetAt: sql`CASE WHEN ${loginRateLimits.resetAt} <= ${now} THEN ${nextResetAt} ELSE ${loginRateLimits.resetAt} END`,
+      },
+    })
     .run();
 }
 

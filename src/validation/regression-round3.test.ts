@@ -896,9 +896,9 @@ describe('Kiểm thử hồi quy QA Vòng 3 — Kiến trúc Vercel + Turso (ADR
       // Kiểm tra trực tiếp dữ liệu tồn tại bền vững trong bảng login_rate_limits
       const rowsAfterFailures = await db.select().from(loginRateLimits).all();
       const byKey = new Map(rowsAfterFailures.map((r) => [r.key, r]));
-      expect(byKey.get('direct:gvhuong')?.failures).toBe(3);
+      expect(byKey.get('ip:direct|gvhuong')?.failures).toBe(3);
       expect(byKey.get('user:gvhuong')?.failures).toBe(3);
-      expect(byKey.get('direct:gvbinh')?.failures).toBe(2);
+      expect(byKey.get('ip:direct|gvbinh')?.failures).toBe(2);
       expect(byKey.get('user:gvbinh')?.failures).toBe(2);
 
       // gvhuong đăng nhập thành công -> xóa đúng 2 bucket của gvhuong, giữ nguyên 2 bucket của gvbinh
@@ -912,9 +912,9 @@ describe('Kiểm thử hồi quy QA Vòng 3 — Kiến trúc Vercel + Turso (ADR
 
       const rowsAfterSuccess = await db.select().from(loginRateLimits).all();
       const afterSuccessMap = new Map(rowsAfterSuccess.map((r) => [r.key, r]));
-      expect(afterSuccessMap.has('direct:gvhuong')).toBe(false);
+      expect(afterSuccessMap.has('ip:direct|gvhuong')).toBe(false);
       expect(afterSuccessMap.has('user:gvhuong')).toBe(false);
-      expect(afterSuccessMap.get('direct:gvbinh')?.failures).toBe(2);
+      expect(afterSuccessMap.get('ip:direct|gvbinh')?.failures).toBe(2);
       expect(afterSuccessMap.get('user:gvbinh')?.failures).toBe(2);
 
       // gvbinh sai thêm 3 lần nữa (tổng 5 lần) -> lần thứ 6 bị chặn 429 và bucket vẫn giữ nguyên trong DB
@@ -940,7 +940,7 @@ describe('Kiểm thử hồi quy QA Vòng 3 — Kiến trúc Vercel + Turso (ADR
       const binhBucket = await db
         .select()
         .from(loginRateLimits)
-        .where(eq(loginRateLimits.key, 'direct:gvbinh'))
+        .where(eq(loginRateLimits.key, 'ip:direct|gvbinh'))
         .get();
       expect(binhBucket?.failures).toBe(5);
     });

@@ -1,4 +1,4 @@
-> Status: Implemented (2026-11-24)
+> Status: Validated (2026-11-25)
 
 # Kế hoạch triển khai (Tasks): Quản lý Mượn – Trả Học Bạ (`quan-ly-muon-tra-hoc-ba`)
 

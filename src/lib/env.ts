@@ -7,6 +7,7 @@ export interface AppEnv {
   sessionTtlDays: number;
   seedAdminUsername: string;
   seedAdminPassword: string;
+  hasExplicitSeedAdminPassword: boolean;
   seedAdminName: string;
   seedAdminMustChangePassword: boolean;
 }
@@ -42,6 +43,8 @@ export function getEnv(): AppEnv {
     process.env.DATABASE_PATH?.trim() ||
     'file:./data/app.db';
 
+  const explicitSeedPassword = process.env.SEED_ADMIN_PASSWORD?.trim() || '';
+
   return {
     tursoDatabaseUrl: normalizeDbUrl(rawDbUrl),
     tursoAuthToken: process.env.TURSO_AUTH_TOKEN?.trim() || undefined,
@@ -50,8 +53,12 @@ export function getEnv(): AppEnv {
     trustProxy: parseBoolean(process.env.TRUST_PROXY, isVercel),
     sessionTtlDays: parsePositiveInt(process.env.SESSION_TTL_DAYS, 7),
     seedAdminUsername: (process.env.SEED_ADMIN_USERNAME?.trim() || 'admin').toLowerCase(),
-    seedAdminPassword: process.env.SEED_ADMIN_PASSWORD?.trim() || 'Admin@123456',
+    seedAdminPassword: explicitSeedPassword || 'Admin@123456',
+    hasExplicitSeedAdminPassword: explicitSeedPassword.length > 0,
     seedAdminName: process.env.SEED_ADMIN_NAME?.trim() || 'Văn thư nhà trường',
-    seedAdminMustChangePassword: parseBoolean(process.env.SEED_ADMIN_MUST_CHANGE_PASSWORD, false),
+    seedAdminMustChangePassword: parseBoolean(
+      process.env.SEED_ADMIN_MUST_CHANGE_PASSWORD,
+      isVercel
+    ),
   };
 }

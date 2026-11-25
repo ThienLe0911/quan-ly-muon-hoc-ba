@@ -67,7 +67,7 @@ Hệ thống được thiết kế theo mô hình **Full-stack Next.js Serverles
 | `school_year` | `TEXT` | `NOT NULL` | Niên khóa học bạ (vd: `2025-2026`) |
 | `record_identity_key` | `TEXT` | `NOT NULL` | Khóa chuẩn hóa để chống mượn trùng (`class\|student\|school_year`) |
 | `class_name_norm` | `TEXT` | `NOT NULL DEFAULT ''` | Tên lớp chuẩn hóa không dấu/chữ thường phục vụ lọc lớp trên Turso |
-| `search_text` | `TEXT` | `NOT NULL DEFAULT ''` | Chuỗi tìm kiếm không dấu/chữ thường (`student_name`, `class_name`, `school_year`, `teacher_name_snapshot`, `borrow_note`) |
+| `search_text` | `TEXT` | `NOT NULL DEFAULT ''` | Chuỗi tìm kiếm không dấu/chữ thường (`student_name`, `class_name`, `school_year`, `teacher_name_snapshot`, `teacher_unit_snapshot`, `teacher_phone_snapshot`) |
 | `borrowed_at` | `TEXT` | `NOT NULL` | Thời điểm mượn chính xác (ISO-8601 UTC) |
 | `due_date` | `TEXT` | `NOT NULL` | Hạn ngày trả (`YYYY-MM-DD`, theo lịch VN) |
 | `returned_at` | `TEXT` | `NULL` | Thời điểm Admin xác nhận đã trả (ISO-8601 UTC) |
