@@ -64,7 +64,7 @@ export function AppShell({ user, children }: AppShellProps) {
                   Sổ Học Bạ Tiểu Học
                 </div>
                 <div className="text-xs text-slate-500">
-                  {user.role === 'ADMIN' ? 'Cổng Văn thư / Quản trị' : 'Cổng Giáo viên'}
+                  {user.role === 'ADMIN' ? 'Cổng Giáo vụ / Quản trị' : 'Cổng Giáo viên'}
                 </div>
               </div>
             </Link>
@@ -132,7 +132,7 @@ export function AppShell({ user, children }: AppShellProps) {
             <div className="mb-3 border-b border-slate-100 pb-2">
               <div className="text-sm font-semibold text-slate-900">{user.fullName}</div>
               <div className="text-xs text-slate-500">
-                {user.role === 'ADMIN' ? 'Admin văn thư' : user.unit ? `Giáo viên · ${user.unit}` : 'Giáo viên'}
+                {user.role === 'ADMIN' ? 'Admin · Giáo vụ' : user.unit ? `Giáo viên · ${user.unit}` : 'Giáo viên'}
               </div>
             </div>
             <div className="flex flex-col gap-1">

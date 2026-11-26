@@ -4,7 +4,7 @@
 
 ## 1. Đối tượng sử dụng (Personas)
 
-### 1.1. Admin (Nhân viên văn thư / Quản trị văn phòng)
+### 1.1. Admin (Giáo vụ / Quản trị)
 - **Mục tiêu:** Kiểm soát toàn bộ học bạ đang lưu hành ngoài kho văn phòng, phát hiện nhanh hồ sơ quá hạn và xác nhận thu hồi đúng sổ giấy.
 - **Nhu cầu chính:**
   - Tạo, chỉnh sửa, khóa/mở khóa và đặt lại mật khẩu cho tài khoản giáo viên.
@@ -17,7 +17,7 @@
 ### 1.2. Giáo viên
 - **Mục tiêu:** Mượn học bạ nhanh khi cần xử lý hồ sơ lớp/học sinh và theo dõi các bộ mình đang giữ để trả đúng hạn.
 - **Nhu cầu chính:**
-  - Đăng nhập bằng tài khoản được văn thư cấp.
+  - Đăng nhập bằng tài khoản được Giáo vụ cấp.
   - Tạo phiếu mượn bằng cách nhập `Lớp`, `Tên học sinh`, `Niên khóa`, ngày hẹn trả (hệ thống gợi ý sẵn theo cấu hình trường, có thể chỉnh trong giới hạn cho phép) và ghi chú lý do mượn.
   - Xem danh sách học bạ mình đang mượn (nhận biết rõ cuốn nào sắp đến hạn hoặc đã quá hạn) và lịch sử các cuốn đã trả.
 
@@ -46,7 +46,7 @@ Lý do gom gọn vào một feature lõi: các thực thể (`users`, `loan_reco
      - **Theo thời gian mượn** (sắp xếp mới nhất/cũ nhất, lọc khoảng ngày mượn).
      - **Theo độ lố hạn cần lưu ý** (ưu tiên người trễ nhiều ngày nhất, chia nhóm mức độ: Nghiêm trọng `>= 8` ngày, Vừa `4–7` ngày, Nhẹ `1–3` ngày, kèm nhóm Sắp đến hạn để chủ động nhắc trước).
 4. **Trả học bạ:**
-   - Giáo viên mang học bạ giấy trả trực tiếp cho văn thư.
+   - Giáo viên mang học bạ giấy trả trực tiếp cho Giáo vụ.
    - Admin tìm phiếu đang mượn, đối chiếu đúng `Lớp + Tên học sinh + Niên khóa`, bấm **Xác nhận đã trả** (có thể thêm ghi chú tình trạng sổ).
    - Phiếu chuyển sang trạng thái `RETURNED`, rời khỏi Danh sách đỏ và giải phóng khóa định danh để lần sau có thể mượn lại.
 

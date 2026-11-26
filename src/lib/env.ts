@@ -55,7 +55,7 @@ export function getEnv(): AppEnv {
     seedAdminUsername: (process.env.SEED_ADMIN_USERNAME?.trim() || 'admin').toLowerCase(),
     seedAdminPassword: explicitSeedPassword || 'Admin@123456',
     hasExplicitSeedAdminPassword: explicitSeedPassword.length > 0,
-    seedAdminName: process.env.SEED_ADMIN_NAME?.trim() || 'Văn thư nhà trường',
+    seedAdminName: process.env.SEED_ADMIN_NAME?.trim() || 'Giáo vụ nhà trường',
     seedAdminMustChangePassword: parseBoolean(
       process.env.SEED_ADMIN_MUST_CHANGE_PASSWORD,
       isVercel

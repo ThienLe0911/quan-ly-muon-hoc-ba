@@ -89,7 +89,7 @@ export function AdminDashboardClient({
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-xl font-bold text-slate-900">Bảng điều khiển Văn thư (Admin)</h1>
+        <h1 className="text-xl font-bold text-slate-900">Bảng điều khiển Giáo vụ (Admin)</h1>
         <p className="text-sm text-slate-500">
           Theo dõi học bạ đang lưu hành, cảnh báo danh sách đỏ quá hạn và xác nhận thu hồi sổ giấy.
         </p>

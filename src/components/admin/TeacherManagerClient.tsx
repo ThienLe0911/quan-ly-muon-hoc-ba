@@ -394,7 +394,7 @@ export function TeacherManagerClient({ currentUserId }: { currentUserId: number 
                       <td className="py-3 pr-4 text-slate-700">{u.unit || '—'}</td>
                       <td className="py-3 pr-4 text-slate-700">{u.phone || '—'}</td>
                       <td className="py-3 pr-4 font-semibold text-slate-800">
-                        {u.activeLoanCount > 0 ? `${u.activeLoanCount} cuốn` : '0'}
+                        {u.activeLoanCount > 0 ? `${u.activeLoanCount} phiếu` : '0'}
                       </td>
                       <td className="py-3 pr-4">
                         <span
@@ -528,7 +528,7 @@ export function TeacherManagerClient({ currentUserId }: { currentUserId: number 
                     className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
                   >
                     <option value="TEACHER">Giáo viên</option>
-                    <option value="ADMIN">Admin (Văn thư)</option>
+                    <option value="ADMIN">Admin (Giáo vụ)</option>
                   </select>
                 </div>
               </div>

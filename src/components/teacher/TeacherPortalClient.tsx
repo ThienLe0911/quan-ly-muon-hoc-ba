@@ -115,7 +115,7 @@ export function TeacherPortalClient({
           <h1 className="text-xl font-bold text-slate-900">Xin chào, {teacherName}</h1>
           <p className="text-sm text-slate-500">
             {teacherUnit ? `Đơn vị: ${teacherUnit} · ` : ''}
-            Lưu ý: Khi trả học bạ giấy, vui lòng bàn giao trực tiếp để văn thư xác nhận trên hệ thống.
+            Lưu ý: Khi trả học bạ giấy, vui lòng bàn giao trực tiếp để Giáo vụ xác nhận trên hệ thống.
           </p>
         </div>
 

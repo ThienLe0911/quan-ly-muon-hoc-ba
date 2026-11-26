@@ -1,4 +1,4 @@
-> Status: Validated (2026-11-25)
+> Status: Validated (2026-11-26)
 
 # Kế hoạch triển khai (Tasks): Quản lý Mượn – Trả Học Bạ (`quan-ly-muon-tra-hoc-ba`)
 
@@ -301,3 +301,27 @@ Các task cùng `Wave` và gắn nhãn `[Parallel: Wave N]` là **độc lập, 
 - [x] **T18: Cập nhật & chạy kiểm thử hồi quy toàn diện `[Sequential]`**
   - **Phạm vi file:** `src/validation/acceptance.test.ts`
   - **Tiêu chí hoàn thành:** Cập nhật test `logout` theo Phương án A & `MEDIUM-02`; bổ sung test hồi quy cho `HIGH-02`, `HIGH-03`, `HIGH-04`, `MEDIUM-01`, `MEDIUM-03`, `MEDIUM-04`, `MEDIUM-05`, `MEDIUM-06`, `MEDIUM-07`; toàn bộ `vitest run`, `tsc --noEmit`, `eslint .`, `next build --webpack` đạt 100% PASS.
+
+---
+
+### Wave 7 — Đổi thuật ngữ "Giáo vụ" & Hỗ trợ 2 loại mượn: Cả lớp / Riêng lẻ (ADR-005, 2026-11-26)
+
+- [x] **T19: Migration `0002`, Schema DB & backfill `class_year_key` `[Sequential]`**
+  - **Phạm vi file:** `src/db/schema.ts`, `src/db/migrations/0002_loan_type_and_whole_class.sql`, `src/db/migrations/registry.ts`, `src/db/migrate.ts`
+  - **Tiêu chí hoàn thành:** Thêm 3 cột `loan_type` (`DEFAULT 'INDIVIDUAL'`), `class_year_key` (`DEFAULT ''`), `quantity` (nullable) và index `idx_loan_class_year_status`; backfill `class_year_key` tự động cho dữ liệu cũ; không rebuild bảng.
+
+- [x] **T20: Domain, Validator & API `/api/loans*` chặn trùng chéo 2 chiều `[Sequential]`**
+  - **Phạm vi file:** `src/lib/domain/record-identity.ts`, `src/lib/api/validators.ts`, `src/app/api/loans/route.ts`, `src/app/api/loans/[id]/return/route.ts`, `src/app/api/loans/[id]/cancel/route.ts`
+  - **Tiêu chí hoàn thành:** Hỗ trợ `loanType: 'WHOLE_CLASS' | 'INDIVIDUAL'`, `quantity` tùy chọn (`1..200`) khi mượn cả lớp, lưu `studentName = 'Toàn bộ lớp'`; kiểm tra chặn trùng chéo 2 chiều theo `class_year_key` nguyên tử trong `withWriteTransaction`; lọc `GET /api/loans?loanType=...`; ghi `loanType`/`quantity` vào `audit_logs`.
+
+- [x] **T21: Đổi thuật ngữ "Văn thư" → "Giáo vụ" toàn hệ thống `[Parallel với T22]`**
+  - **Phạm vi file:** `src/lib/env.ts`, `src/app/api/auth/login/route.ts`, `src/components/AppShell.tsx`, `src/components/ChangePasswordForm.tsx`, `src/components/admin/AdminDashboardClient.tsx`, `src/components/admin/TeacherManagerClient.tsx`, `src/components/teacher/TeacherPortalClient.tsx`, `.env.example`, `README.md`, `docs/vision/vision.md`, `docs/product/product.md`, `docs/architecture/architecture.md`
+  - **Tiêu chí hoàn thành:** Không còn chữ `"Văn thư"` / `"văn thư"` trên giao diện người dùng, thông báo lỗi API hay giá trị mặc định `SEED_ADMIN_NAME`.
+
+- [x] **T22: Giao diện 2 loại mượn cho Giáo viên & Admin (Giáo vụ) `[Sequential]`**
+  - **Phạm vi file:** `src/components/teacher/BorrowForm.tsx`, `src/components/teacher/TeacherLoansList.tsx`, `src/components/admin/RedListPanel.tsx`, `src/components/admin/LoansTable.tsx`, `src/components/admin/ReturnCancelModals.tsx`
+  - **Tiêu chí hoàn thành:** `BorrowForm` cho chọn *Mượn toàn bộ 1 lớp* / *Mượn riêng lẻ*, tự ẩn/hiện ô Tên học sinh & ô Số lượng tùy chọn; hiển thị badge **`Cả lớp`** (+ `X quyển`) / **`Riêng lẻ`** nhất quán trên mọi danh sách, Danh sách đỏ và modal xác nhận trả/hủy; Admin có bộ lọc `Loại mượn`.
+
+- [x] **T23: Bổ sung kiểm thử `AC-15` & chạy kiểm chứng toàn bộ `[Sequential]`**
+  - **Phạm vi file:** `src/validation/acceptance.test.ts`, `src/db/db.test.ts`
+  - **Tiêu chí hoàn thành:** Test đầy đủ `WHOLE_CLASS`, chặn trùng chéo 2 chiều (tuần tự & đồng thời `Promise.all`), lọc `loanType`, migration `0002` + backfill từ DB cũ; `vitest run`, `tsc --noEmit`, `eslint .`, `next build --webpack` đạt 100% PASS.

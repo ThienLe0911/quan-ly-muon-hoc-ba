@@ -28,7 +28,7 @@ function isSqliteBusyError(err: unknown, depth: number = 0): boolean {
   const code = record.code ? String(record.code) : '';
   const msg = record.message ? String(record.message) : '';
   if (
-    code === 'SQLITE_BUSY' ||
+    code.startsWith('SQLITE_BUSY') ||
     msg.includes('SQLITE_BUSY') ||
     msg.includes('database is locked')
   ) {

@@ -2232,4 +2232,313 @@ describe('Bộ kiểm chứng chấp nhận độc lập (AC-01..AC-14 & BR-01..
       expect(isSqliteUniqueError({ code: 'SQLITE_CONSTRAINT_UNIQUE' })).toBe(true);
     });
   });
+
+  // =========================================================================
+  // AC-15 & ADR-005 — Hai loại mượn (Cả lớp / Riêng lẻ) & chặn trùng chéo 2 chiều
+  // =========================================================================
+  describe('AC-15 & ADR-005: Mượn toàn bộ 1 lớp, mượn riêng lẻ và chặn trùng chéo 2 chiều', () => {
+    it('tạo phiếu WHOLE_CLASS (có và không có số lượng), validate quantity và không rò rỉ classYearKey', async () => {
+      const todayVN = getTodayVNDateString();
+      const due7 = addCalendarDays(todayVN, 7);
+
+      // Số lượng không hợp lệ -> 400
+      for (const badQty of [0, -5, 201, 12.5]) {
+        const badRes = await createLoanPOST(
+          makeJsonReq(
+            'http://localhost/api/loans',
+            'POST',
+            {
+              loanType: 'WHOLE_CLASS',
+              className: '3A',
+              schoolYear: '2025-2026',
+              quantity: badQty,
+              dueDate: due7,
+            },
+            teacherACookie
+          )
+        );
+        expect(badRes.status).toBe(400);
+      }
+
+      // Tạo phiếu cả lớp CÓ số lượng (không cần truyền studentName)
+      const resWithQty = await createLoanPOST(
+        makeJsonReq(
+          'http://localhost/api/loans',
+          'POST',
+          {
+            loanType: 'WHOLE_CLASS',
+            className: ' 3A ',
+            schoolYear: '2025 - 2026',
+            quantity: 35,
+            dueDate: due7,
+            borrowNote: 'Ghi nhận xét cuối kỳ cả lớp',
+          },
+          teacherACookie
+        )
+      );
+      expect(resWithQty.status).toBe(201);
+      const loan1 = (await resWithQty.json()).data;
+      expect(loan1.loanType).toBe('WHOLE_CLASS');
+      expect(loan1.studentName).toBe('Toàn bộ lớp');
+      expect(loan1.quantity).toBe(35);
+      expect('classYearKey' in loan1).toBe(false);
+
+      // Tạo phiếu cả lớp khác KHÔNG truyền số lượng -> quantity = null
+      const resNoQty = await createLoanPOST(
+        makeJsonReq(
+          'http://localhost/api/loans',
+          'POST',
+          {
+            loanType: 'WHOLE_CLASS',
+            className: '3B',
+            schoolYear: '2025-2026',
+            dueDate: due7,
+          },
+          teacherBCookie
+        )
+      );
+      expect(resNoQty.status).toBe(201);
+      const loan2 = (await resNoQty.json()).data;
+      expect(loan2.loanType).toBe('WHOLE_CLASS');
+      expect(loan2.quantity).toBeNull();
+
+      // Tạo thêm 1 phiếu INDIVIDUAL lớp 4A để kiểm tra lọc loanType
+      const resInd = await createLoanPOST(
+        makeJsonReq(
+          'http://localhost/api/loans',
+          'POST',
+          {
+            loanType: 'INDIVIDUAL',
+            className: '4A',
+            studentName: 'Lê Gia Bảo',
+            schoolYear: '2025-2026',
+            dueDate: due7,
+          },
+          teacherACookie
+        )
+      );
+      expect(resInd.status).toBe(201);
+      expect((await resInd.json()).data.loanType).toBe('INDIVIDUAL');
+
+      // Admin lọc theo loanType=WHOLE_CLASS & loanType=INDIVIDUAL
+      const onlyWhole = await (
+        await listLoansGET(
+          new Request('http://localhost/api/loans?loanType=WHOLE_CLASS', {
+            headers: { cookie: adminCookie },
+          })
+        )
+      ).json();
+      expect(onlyWhole.data).toHaveLength(2);
+      expect(onlyWhole.data.every((r: { loanType: string }) => r.loanType === 'WHOLE_CLASS')).toBe(
+        true
+      );
+
+      const onlyInd = await (
+        await listLoansGET(
+          new Request('http://localhost/api/loans?loanType=INDIVIDUAL', {
+            headers: { cookie: adminCookie },
+          })
+        )
+      ).json();
+      expect(onlyInd.data).toHaveLength(1);
+      expect(onlyInd.data[0].studentName).toBe('Lê Gia Bảo');
+
+      // Tìm kiếm không dấu "ca lop" ra đúng 2 phiếu WHOLE_CLASS
+      const searchCaLop = await (
+        await listLoansGET(
+          new Request('http://localhost/api/loans?q=ca+lop', {
+            headers: { cookie: adminCookie },
+          })
+        )
+      ).json();
+      expect(searchCaLop.data).toHaveLength(2);
+    });
+
+    it('chặn trùng chéo 2 chiều giữa WHOLE_CLASS và INDIVIDUAL (tuần tự & đồng thời) và giải phóng sau khi trả/hủy', async () => {
+      const todayVN = getTodayVNDateString();
+      const due7 = addCalendarDays(todayVN, 7);
+
+      // Chiều 1: Đang mượn WHOLE_CLASS lớp 3A (2025-2026) -> chặn cả WHOLE_CLASS lẫn INDIVIDUAL của 3A (2025-2026)
+      const whole3A = await createLoanPOST(
+        makeJsonReq(
+          'http://localhost/api/loans',
+          'POST',
+          {
+            loanType: 'WHOLE_CLASS',
+            className: '3A',
+            schoolYear: '2025-2026',
+            quantity: 32,
+            dueDate: due7,
+          },
+          teacherACookie
+        )
+      );
+      expect(whole3A.status).toBe(201);
+      const whole3AId = (await whole3A.json()).data.id;
+
+      // Trùng WHOLE_CLASS (viết thường + khoảng trắng) -> 409
+      const dupWhole = await createLoanPOST(
+        makeJsonReq(
+          'http://localhost/api/loans',
+          'POST',
+          {
+            loanType: 'WHOLE_CLASS',
+            className: ' 3a ',
+            schoolYear: '2025 - 2026',
+            dueDate: due7,
+          },
+          teacherBCookie
+        )
+      );
+      expect(dupWhole.status).toBe(409);
+      const dupWholeBody = await dupWhole.json();
+      expect(dupWholeBody.error.code).toBe('DUPLICATE_ACTIVE_LOAN');
+      expect(Object.keys(dupWholeBody.error.details.existingLoan).sort()).toEqual([
+        'borrowedAt',
+        'dueDate',
+        'teacherNameSnapshot',
+      ]);
+
+      // Mượn lẻ học sinh thuộc 3A (2025-2026) -> bị chặn chéo 409
+      const blockedInd = await createLoanPOST(
+        makeJsonReq(
+          'http://localhost/api/loans',
+          'POST',
+          {
+            loanType: 'INDIVIDUAL',
+            className: '3a',
+            studentName: 'Nguyễn Minh Quân',
+            schoolYear: '2025-2026',
+            dueDate: due7,
+          },
+          teacherBCookie
+        )
+      );
+      expect(blockedInd.status).toBe(409);
+      expect((await blockedInd.json()).error.message).toContain('Toàn bộ học bạ lớp 3A');
+
+      // Khác niên khóa (3A, 2024-2025) vẫn mượn lẻ được bình thường
+      const diffYearOk = await createLoanPOST(
+        makeJsonReq(
+          'http://localhost/api/loans',
+          'POST',
+          {
+            loanType: 'INDIVIDUAL',
+            className: '3A',
+            studentName: 'Nguyễn Minh Quân',
+            schoolYear: '2024-2025',
+            dueDate: due7,
+          },
+          teacherBCookie
+        )
+      );
+      expect(diffYearOk.status).toBe(201);
+
+      // Admin xác nhận trả trọn bộ 3A -> sau đó mượn lẻ 3A (2025-2026) thành công
+      const retWhole = await returnLoanPOST(
+        makeNextJsonReq(
+          `http://localhost/api/loans/${whole3AId}/return`,
+          'POST',
+          { returnNote: 'Đã nhận đủ 32 quyển' },
+          adminCookie
+        ),
+        { params: Promise.resolve({ id: String(whole3AId) }) }
+      );
+      expect(retWhole.status).toBe(200);
+
+      // Chiều 2: Đang có 1 học sinh lẻ lớp 3A (2025-2026) -> chặn mượn WHOLE_CLASS 3A (2025-2026)
+      const ind3A = await createLoanPOST(
+        makeJsonReq(
+          'http://localhost/api/loans',
+          'POST',
+          {
+            loanType: 'INDIVIDUAL',
+            className: '3A',
+            studentName: 'Nguyễn Minh Quân',
+            schoolYear: '2025-2026',
+            dueDate: due7,
+          },
+          teacherBCookie
+        )
+      );
+      expect(ind3A.status).toBe(201);
+      const ind3AId = (await ind3A.json()).data.id;
+
+      const blockedWhole = await createLoanPOST(
+        makeJsonReq(
+          'http://localhost/api/loans',
+          'POST',
+          {
+            loanType: 'WHOLE_CLASS',
+            className: '3A',
+            schoolYear: '2025-2026',
+            dueDate: due7,
+          },
+          teacherACookie
+        )
+      );
+      expect(blockedWhole.status).toBe(409);
+      expect((await blockedWhole.json()).error.message).toContain('1 học bạ mượn riêng lẻ chưa trả');
+
+      // Hủy phiếu lẻ -> mượn cả lớp 3A thành công trở lại
+      const cancelInd = await cancelLoanPOST(
+        makeNextJsonReq(
+          `http://localhost/api/loans/${ind3AId}/cancel`,
+          'POST',
+          { reason: 'Chuyển sang mượn cả lớp' },
+          adminCookie
+        ),
+        { params: Promise.resolve({ id: String(ind3AId) }) }
+      );
+      expect(cancelInd.status).toBe(200);
+
+      const reWhole = await createLoanPOST(
+        makeJsonReq(
+          'http://localhost/api/loans',
+          'POST',
+          {
+            loanType: 'WHOLE_CLASS',
+            className: '3A',
+            schoolYear: '2025-2026',
+            dueDate: due7,
+          },
+          teacherACookie
+        )
+      );
+      expect(reWhole.status).toBe(201);
+
+      // Chạy đồng thời Promise.all([WHOLE_CLASS, INDIVIDUAL]) cùng lớp 5A (2025-2026) -> đúng [201, 409]
+      const [c1, c2] = await Promise.all([
+        createLoanPOST(
+          makeJsonReq(
+            'http://localhost/api/loans',
+            'POST',
+            {
+              loanType: 'WHOLE_CLASS',
+              className: '5A',
+              schoolYear: '2025-2026',
+              quantity: 30,
+              dueDate: due7,
+            },
+            teacherACookie
+          )
+        ),
+        createLoanPOST(
+          makeJsonReq(
+            'http://localhost/api/loans',
+            'POST',
+            {
+              loanType: 'INDIVIDUAL',
+              className: '5A',
+              studentName: 'Phạm Hoàng Nam',
+              schoolYear: '2025-2026',
+              dueDate: due7,
+            },
+            teacherBCookie
+          )
+        ),
+      ]);
+      expect([c1.status, c2.status].sort((a, b) => a - b)).toEqual([201, 409]);
+    });
+  });
 });

@@ -1,57 +1,74 @@
-> Status: Validated (2026-11-25) — PASS toàn diện (0 BLOCKER, 0 HIGH, 0 MEDIUM, 0 LOW; 81/81 tests PASS, tsc/eslint/next build PASS)
+> Status: Validated (2026-11-26) — Vòng 4 chốt cuối: 99/99 tests PASS (12/12 files), tsc/eslint/next build PASS; 0 BLOCKER, 0 HIGH, 0 MEDIUM, 0 LOW tồn đọng
 
-# Báo cáo Kiểm chứng (Validation) Vòng 3 & Nghiệm thu: Quản lý Mượn – Trả Học Bạ (`quan-ly-muon-tra-hoc-ba`)
+# Báo cáo Kiểm chứng (Validation) Vòng 4 — Wave 7: Quản lý Mượn – Trả Học Bạ (`quan-ly-muon-tra-hoc-ba`)
 
-- **Ngày chốt nghiệm thu (`Validated`):** 2026-11-25 (theo phê duyệt của chủ dự án sau khi hoàn tất sửa toàn bộ 4 `MEDIUM` & 4 `LOW` của Vòng 3)
-- **Nguồn chân lý đối chiếu:** [`spec.md`](spec.md) (`Validated`), [`tasks.md`](tasks.md) (`Validated`), [`architecture.md`](../../architecture/architecture.md) (`Approved` 2026-11-25), ADR [`002`](../../architecture/decisions/002-co-che-xac-thuc-va-phan-quyen.md) / [`003`](../../architecture/decisions/003-dinh-danh-hoc-ba-va-quy-tac-qua-han.md) / [`004`](../../architecture/decisions/004-trien-khai-vercel-va-co-so-du-lieu-turso.md) (`Accepted`, thay thế ADR [`001`](../../architecture/decisions/001-tech-stack-va-co-so-du-lieu.md)), [`AGENTS.md`](../../../AGENTS.md).
-- **Phương pháp thực hiện:**
-  - 2 subagent độc lập cho Vòng 3 (**Reviewer Vòng 3** chỉ đọc & **QA Engineer Vòng 3** viết thêm 15 bài kiểm thử hồi quy Vercel + Turso tại `src/validation/regression-round3.test.ts`).
-  - Khắc phục triệt để toàn bộ 4 mục `MEDIUM-R3-01..04` và 4 mục `LOW-R3-01..04`, bổ sung test kiểm chứng seed an toàn trên Vercel trong `src/db/db.test.ts`, chạy lại toàn bộ bộ kiểm chứng tự động (`vitest`, `tsc`, `eslint`, `next build --webpack`, CLI `migrate`/`seed`).
+- **Ngày kiểm chứng vòng 4:** 2026-11-26 (kiểm chứng độc lập Wave 7 `T19`–`T23`: đổi thuật ngữ `"Văn thư"` → `"Giáo vụ"`, hỗ trợ 2 loại mượn `WHOLE_CLASS` / `INDIVIDUAL`, chặn trùng chéo 2 chiều và migration `0002` theo **ADR-005 `Accepted`**)
+- **Nguồn chân lý đối chiếu:** [`spec.md`](spec.md) (`Approved` 2026-11-26), [`tasks.md`](tasks.md) (`Implemented` Wave 7 `T19`–`T23`), [`architecture.md`](../../architecture/architecture.md) (`Approved` 2026-11-26), ADR [`002`](../../architecture/decisions/002-co-che-xac-thuc-va-phan-quyen.md) / [`003`](../../architecture/decisions/003-dinh-danh-hoc-ba-va-quy-tac-qua-han.md) / [`004`](../../architecture/decisions/004-trien-khai-vercel-va-co-so-du-lieu-turso.md) / [`005`](../../architecture/decisions/005-bo-sung-loai-muon-ca-lop-va-chan-trung-cheo.md) (`Accepted`), [`AGENTS.md`](../../../AGENTS.md).
+- **Phương pháp thực hiện:** 2 subagent độc lập mới hoàn toàn cho Vòng 4:
+  - **Reviewer Vòng 4 (chỉ đọc):** rà soát toàn bộ `T19`–`T23`, đối chiếu `FR-01..12`, `BR-01..11`, `AC-01..15` và `ADR-005`.
+  - **QA Vòng 4 (chỉ sửa file test):** viết mới **15 test hồi quy** chuyên sâu cho Wave 7 tại `src/validation/regression-round4.test.ts` (tương thích ngược, biên `quantity`, chặn trùng chéo 2 chiều & concurrency `Promise.all` 6 request đồng thời, Dashboard/Audit/Search, migration `0002` trên file SQLite thật `/tmp`, thuật ngữ Giáo vụ) và chạy đủ 4 cổng kiểm chứng.
 
 ---
 
 ## 1. Tóm tắt kết quả qua các vòng kiểm chứng
 
-| Hạng mục | Vòng 1 | Vòng 2 | Vòng 3 (độc lập) | Chốt cuối (`Validated`) |
-| --- | --- | --- | --- | --- |
-| **Test tự động (`vitest run`)** | 41/42 PASS | 64/64 PASS | 79/80 PASS · 1 FAIL | **81/81 PASS · 0 FAIL** (11/11 file test PASS) |
-| **TypeScript (`tsc --noEmit`)** | PASS | PASS | PASS | **PASS (0 lỗi)** |
-| **Lint (`eslint .`)** | PASS | PASS | PASS | **PASS (0 lỗi, 0 cảnh báo)** |
-| **Production Build (`next build --webpack`)** | PASS | PASS | PASS | **PASS (21/21 routes)** |
-| **CLI Migration & Seed (`tsx`)** | PASS | PASS | PASS | **PASS (idempotent, tách biệt migrate & seed)** |
-| **Gỡ Docker & `better-sqlite3`** | — | Chưa gỡ | PASS | **PASS (sạch 100%)** |
-| **Phát hiện còn tồn đọng** | 4 HIGH · 13 MEDIUM | 0 HIGH · 4 MEDIUM | 0 HIGH · 4 MEDIUM · 4 LOW | **0 BLOCKER · 0 HIGH · 0 MEDIUM · 0 LOW** |
-| **Kết luận** | Conditional Fail | Conditional Fail | Conditional Fail | **`VALIDATED` (ĐẠT TOÀN DIỆN)** |
-
----
-
-## 2. Xác minh khắc phục toàn bộ tồn đọng Vòng 2 & Vòng 3
-
-### 2.1. Các mục Vòng 2 (`4/4 ĐÃ KHẮC PHỤC`)
-| Mã | Trạng thái | Bằng chứng xác minh (`file:dòng`) |
-| --- | --- | --- |
-| **`MEDIUM-R2-01`** | **ĐÃ KHẮC PHỤC** | Chặn `setLoading(true)` thừa khi bấm lại tab đang chọn ở trang 1 (`TeacherPortalClient.tsx:90-96,170-175`, `LoansTable.tsx:165-171`). |
-| **`MEDIUM-R2-03`** | **ĐÃ KHẮC PHỤC** | Đủ `!res.ok`, `catch`, banner báo lỗi & nút `Thử lại` trên cả 4 danh sách (`TeacherPortalClient`/`TeacherLoansList`, `LoansTable`, `TeacherManagerClient`, `AuditLogsClient`). |
-| **`MEDIUM-R2-02` & `MEDIUM-10`** | **ĐÃ KHẮC PHỤC** | Xóa hoàn toàn `Dockerfile`, `docker-compose.yml`, `.dockerignore`, bỏ `output: 'standalone'`, chuyển sang Vercel + Turso (ADR-004). |
-
-### 2.2. Các mục Vòng 3 (`4 MEDIUM + 4 LOW — 8/8 ĐÃ KHẮC PHỤC`)
-| Mã | Mức độ | Trạng thái | Giải pháp đã áp dụng & bằng chứng |
+| Hạng mục | Vòng 3 (chốt cuối) | Vòng 4 — Wave 7 (hiện tại) | Chi tiết Vòng 4 |
 | --- | --- | --- | --- |
-| **`MEDIUM-R3-01`** | MEDIUM | **ĐÃ KHẮC PHỤC** | `src/app/api/loans/route.ts:137-141`: dùng `loanRecords.searchText` (chứa cả NFC và không dấu) cho cả `ADMIN` & `TEACHER` (đã ép `eq(loanRecords.teacherId, auth.user.id)` ở dòng `67`). Test QA `regression-round3.test.ts:548-587` đã chuyển từ FAIL sang **PASS**. |
-| **`MEDIUM-R3-02`** | MEDIUM | **ĐÃ KHẮC PHỤC** | `src/lib/auth/rate-limit.ts:49-65`: chuyển `recordLoginFailure()` sang 1 câu SQL `INSERT ... ON CONFLICT DO UPDATE` nguyên tử với `CASE WHEN reset_at <= now`, loại bỏ race condition lost update trên Vercel Serverless. |
-| **`MEDIUM-R3-03`** | MEDIUM | **ĐÃ KHẮC PHỤC** | `src/db/migrate.ts:87-96`: kiểm tra lại `SELECT 1 FROM _migrations WHERE name = ? LIMIT 1` ngay bên trong `client.transaction('write')` trước khi chạy DDL, chống trùng `ALTER TABLE` khi 2 Serverless instance cold-start song song. |
-| **`MEDIUM-R3-04`** | MEDIUM | **ĐÃ KHẮC PHỤC** | `src/lib/env.ts:52-58` & `src/db/seed.ts:35-39`: khi `VERCEL=1`, mặc định `seedAdminMustChangePassword=true` và từ chối seed nếu thiếu `SEED_ADMIN_PASSWORD` khi chưa có Admin nào. Đã thêm test xác minh tại `src/db/db.test.ts:223-248` (**PASS**). |
-| **`LOW-R3-01`** | LOW | **ĐÃ KHẮC PHỤC** | `src/lib/auth/rate-limit.ts:21-23`: chuẩn hóa khóa bucket IP thành `ip:${ip}|${username}` khớp `architecture.md:131`. |
-| **`LOW-R3-02`** | LOW | **ĐÃ KHẮC PHỤC** | `docs/architecture/architecture.md:70`: đồng bộ chính xác 6 trường chỉ mục trong `loan_records.search_text`. |
-| **`LOW-R3-03`** | LOW | **ĐÃ KHẮC PHỤC** | `src/db/migrate.ts:127-160` & `src/db/seed.ts:74-90`: tách bạch CLI `db:migrate` (không kích hoạt `seedDatabase`) và `db:seed`. |
-| **`LOW-R3-04`** | LOW | **ĐÃ KHẮC PHỤC** | `src/app/api/loans/route.ts:71-76`: kiểm regex `/^\d+$/` chặt cho `teacherIdParam`. |
+| **Test tự động (`vitest run`)** | 81/81 PASS (11 files) | **99/99 PASS · 0 FAIL** | **12/12 file test PASS** (gồm 15 test mới tại `regression-round4.test.ts` + 3 test `AC-15`/`0002` tại `acceptance.test.ts` & `db.test.ts`). |
+| **TypeScript (`tsc --noEmit`)** | PASS | **PASS** | 0 lỗi kiểu. |
+| **Lint (`eslint .`)** | PASS | **PASS** | 0 lỗi, 0 cảnh báo. |
+| **Production Build (`next build --webpack`)** | PASS | **PASS** | Biên dịch sạch toàn bộ trang UI & 13 API Route Handlers. |
+| **QA Độc lập** | PASS | **PASS (100%)** | Không phát hiện lỗi chức năng, bảo mật hay hồi quy nào (`0 BLOCKER · 0 HIGH · 0 MEDIUM`). |
+| **Code Review Độc lập** | 0 BLOCKER · 0 HIGH · 0 MEDIUM | **0 BLOCKER · 0 HIGH · 1 MEDIUM · 5 LOW** | 1 đề xuất quan trọng về tính nguyên tử của backfill trong migration `0002` (`MEDIUM-R4-01`) + 5 tinh chỉnh nhỏ (`LOW-R4-01..05`). |
+| **Kết luận nghiệm thu** | `Validated` | **`CONDITIONAL PASS`** | Đạt 15/15 AC, 11/11 BR, 12/12 FR, 100% Permissions; khuyến nghị sửa gọn `MEDIUM-R4-01` trước khi chốt `Validated` & đẩy lên Vercel/Turso. |
 
 ---
 
-## 3. Ma trận nghiệm thu cuối cùng
+## 2. Đánh giá từng hạng mục Wave 7 (`T19`–`T23`)
 
-- **Yêu cầu chức năng (`FR-01` .. `FR-12`):** **12/12 ĐẠT**.
-- **Quy tắc nghiệp vụ (`BR-01` .. `BR-11`):** **11/11 ĐẠT**.
-- **Phân quyền (`Permissions`):** **100% ĐẠT**.
-- **Tiêu chí chấp nhận (`AC-01` .. `AC-14`):** **14/14 ĐẠT**.
-- **Kiến trúc & ADR (`ADR-002`, `ADR-003`, `ADR-004`):** **100% ĐẠT** (sẵn sàng triển khai production lên **Vercel + Turso**).
+- **T19 (Migration `0002`, Schema & Backfill):** Khớp 100% giữa `0002_loan_type_and_whole_class.sql`, `registry.ts` và `schema.ts` (zero table rebuild); `enrich.ts` ẩn sạch 3 cột nội bộ (`classYearKey`, `searchText`, `classNameNorm`). *(Lưu ý `MEDIUM-R4-01` về thứ tự `commit()` vs backfill).*
+- **T20 (Domain, Validator & API `/api/loans*`):** Đạt 100% — tương thích ngược khi bỏ qua `loanType`, ép `quantity=null` với `INDIVIDUAL`, bỏ qua `studentName` giả với `WHOLE_CLASS`, chặn trùng chéo 2 chiều nguyên tử trong `withWriteTransaction` vượt qua bài test đồng thời 6 request `Promise.all`, payload `409 existingLoan` giữ đúng 3 khóa tối thiểu, lọc `loanType` + tìm không dấu `"ca lop"` + `audit_logs` đầy đủ.
+- **T21 (Đổi thuật ngữ "Văn thư" → "Giáo vụ"):** Đạt 100% — **0 lần xuất hiện** `"Văn thư"` trên UI, API error, seed default hay tài liệu sản phẩm (chỉ còn 1 comment JSDoc nội bộ `LOW-R4-05`).
+- **T22 (UI 2 loại mượn):** Đạt — `BorrowForm` hỗ trợ chuyển đổi trực quan `WHOLE_CLASS`/`INDIVIDUAL` kèm `quantity` tùy chọn; badge `Cả lớp` (+ `X quyển`) / `Riêng lẻ` hiển thị rõ trên `TeacherLoansList`, `RedListPanel`, `LoansTable` (kèm bộ lọc `Loại mượn`) và `ReturnCancelModals`.
+- **T23 (Kiểm thử `AC-15` & Migration `0002`):** Đạt — **99/99 tests PASS** trên **12/12 files**.
+
+---
+
+## 3. Danh sách phát hiện Vòng 4
+
+### BLOCKER (`0`) · HIGH (`0`)
+Không có.
+
+### MEDIUM (`1`)
+
+1. **`MEDIUM-R4-01` — Backfill `class_year_key` (và `search_text`) chạy ngoài write transaction sau khi đã ghi `_migrations`**
+   - **Vị trí:** `src/db/migrate.ts:118-143`.
+   - **Nguyên nhân:** `INSERT OR IGNORE INTO _migrations` và `tx.commit()` chạy trước, sau đó mới gọi `backfillClassYearKeys(client)` / `backfillSearchColumns(client)` ở bên ngoài transaction.
+   - **Tác động:** Nếu mạng tới Turso bị ngắt giữa chừng lúc đang backfill `0002`, hoặc 2 Vercel Serverless instance cold-start song song đúng lúc nâng cấp, các phiếu `BORROWED` cũ có thể còn `class_year_key = ''` → bỏ lọt kiểm tra chặn trùng chéo 2 chiều.
+   - **Khuyến nghị sửa:** Đưa `backfillClassYearKeys(tx)` và `backfillSearchColumns(tx)` vào **bên trong cùng `tx`** ngay trước `INSERT OR IGNORE INTO _migrations` và `tx.commit()`.
+
+### LOW (`5`)
+
+1. **`LOW-R4-01`** (`src/db/index.ts:30-35`): Đổi `code === 'SQLITE_BUSY'` thành `code.startsWith('SQLITE_BUSY')` để bắt luôn mã mở rộng `SQLITE_BUSY_SNAPSHOT` của Turso đa instance.
+2. **`LOW-R4-02`** (`src/components/admin/ReturnCancelModals.tsx:62-66,186-190`): Bổ sung badge `Riêng lẻ` ở 2 modal trả/hủy để đồng bộ với các bảng danh sách.
+3. **`LOW-R4-03`** (`src/components/admin/TeacherManagerClient.tsx:397`): Đổi nhãn `${u.activeLoanCount} cuốn` → `${u.activeLoanCount} phiếu` (vì 1 phiếu `WHOLE_CLASS` có thể chứa nhiều quyển).
+4. **`LOW-R4-04`** (`src/lib/domain/record-identity.ts:81-90`): Dùng chung helper chuẩn hóa `schoolYear` (gạch ngang dài & khoảng trắng) cho cả `buildClassYearKey` và `buildRecordIdentityKey`.
+5. **`LOW-R4-05`** (`src/lib/domain/search.ts:17`, `docs/architecture/architecture.md:146-154`, `README.md:14`): Sửa nốt 1 comment nội bộ `"văn thư/giáo viên"` → `"giáo vụ/giáo viên"` và đồng bộ nhẹ mục `3.1` trong `architecture.md` + `README.md`.
+
+---
+
+## 4. Kết quả khắc phục & Chốt nghiệm thu Vòng 4 (2026-11-26)
+
+- **Đã khắc phục triệt để toàn bộ 6 mục sau review:**
+  - `MEDIUM-R4-01` (`src/db/migrate.ts`): chuyển `backfillSearchColumns(tx)` và `backfillClassYearKeys(tx)` vào bên trong cùng `write transaction` ngay trước `INSERT OR IGNORE INTO _migrations` và `tx.commit()`.
+  - `LOW-R4-01` (`src/db/index.ts`): đổi kiểm tra mã lỗi bận sang `code.startsWith('SQLITE_BUSY')` (bắt thêm `SQLITE_BUSY_SNAPSHOT`).
+  - `LOW-R4-02` (`src/components/admin/ReturnCancelModals.tsx`): bổ sung badge `Riêng lẻ` song song với badge `Cả lớp` trên cả 2 modal Trả và Hủy.
+  - `LOW-R4-03` (`src/components/admin/TeacherManagerClient.tsx`): đổi đơn vị cột đang mượn từ `cuốn` sang `phiếu`.
+  - `LOW-R4-04` (`src/lib/domain/record-identity.ts`): trích helper dùng chung `normalizeSchoolYearRaw` cho `normalizeAndValidateSchoolYear`, `buildClassYearKey` và `buildRecordIdentityKey`.
+  - `LOW-R4-05` (`src/lib/domain/search.ts`, `docs/architecture/architecture.md`, `README.md`): sửa nốt comment nội bộ `"văn thư"` → `"giáo vụ"`, đồng bộ mục `3.1` (`WHOLE_CLASS`/`class_year_key`) và thêm bộ lọc `"loại mượn"` trong `README.md`.
+- **Kiểm chứng lại sau khi sửa (toàn bộ 4 cổng PASS):**
+  - `vitest run`: **12/12 files — 99/99 tests PASS**.
+  - `tsc --noEmit`: **PASS (0 lỗi)**.
+  - `eslint .`: **PASS (0 lỗi, 0 cảnh báo)**.
+  - `next build --webpack`: **PASS**.
+- **Trạng thái chốt:** **`Validated (2026-11-26)`** — Sẵn sàng để chủ dự án commit/push lên Git và deploy Vercel (với region `sin1` + Turso Cloud).

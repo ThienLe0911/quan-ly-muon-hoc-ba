@@ -38,10 +38,15 @@ export const loanRecords = sqliteTable(
     teacherNameSnapshot: text('teacher_name_snapshot').notNull(),
     teacherPhoneSnapshot: text('teacher_phone_snapshot'),
     teacherUnitSnapshot: text('teacher_unit_snapshot'),
+    loanType: text('loan_type', { enum: ['INDIVIDUAL', 'WHOLE_CLASS'] })
+      .notNull()
+      .default('INDIVIDUAL'),
     className: text('class_name').notNull(),
     studentName: text('student_name').notNull(),
     schoolYear: text('school_year').notNull(),
+    quantity: integer('quantity'),
     recordIdentityKey: text('record_identity_key').notNull(),
+    classYearKey: text('class_year_key').notNull().default(''),
     classNameNorm: text('class_name_norm').notNull().default(''),
     searchText: text('search_text').notNull().default(''),
     borrowedAt: text('borrowed_at').notNull(),
@@ -61,6 +66,7 @@ export const loanRecords = sqliteTable(
     index('idx_loan_status_due_date').on(table.status, table.dueDate),
     index('idx_loan_borrowed_at').on(table.borrowedAt),
     index('idx_loan_teacher_status').on(table.teacherId, table.status),
+    index('idx_loan_class_year_status').on(table.classYearKey, table.status),
   ]
 );
 

@@ -118,39 +118,63 @@ export const resetPasswordSchema = z.object({
   mustChangePassword: z.boolean().optional().default(true),
 });
 
-export const createLoanSchema = z.object({
-  className: z
-    .string()
-    .transform(cleanDisplayText)
-    .refine((v) => v.length >= 1 && v.length <= 30, 'Lớp học sinh phải từ 1 đến 30 ký tự.'),
-  studentName: z
-    .string()
-    .transform(cleanDisplayText)
-    .refine((v) => v.length >= 2 && v.length <= 100, 'Tên học sinh phải từ 2 đến 100 ký tự.'),
-  schoolYear: z.string().superRefine((val, ctx) => {
-    const res = normalizeAndValidateSchoolYear(val);
-    if (!res.valid) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: res.error || 'Niên khóa không hợp lệ.',
-      });
+export const createLoanSchema = z
+  .object({
+    loanType: z.enum(['INDIVIDUAL', 'WHOLE_CLASS']).optional().default('INDIVIDUAL'),
+    className: z
+      .string()
+      .transform(cleanDisplayText)
+      .refine((v) => v.length >= 1 && v.length <= 30, 'Lớp học sinh phải từ 1 đến 30 ký tự.'),
+    studentName: z
+      .string()
+      .optional()
+      .nullable()
+      .transform((v) => (v ? cleanDisplayText(v) : '')),
+    quantity: z
+      .union([z.number(), z.null(), z.undefined()])
+      .optional()
+      .refine(
+        (v) =>
+          v === undefined ||
+          v === null ||
+          (Number.isInteger(v) && v >= 1 && v <= 200),
+        'Số lượng học bạ phải là số nguyên từ 1 đến 200.'
+      ),
+    schoolYear: z.string().superRefine((val, ctx) => {
+      const res = normalizeAndValidateSchoolYear(val);
+      if (!res.valid) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: res.error || 'Niên khóa không hợp lệ.',
+        });
+      }
+    }),
+    dueDate: z
+      .string()
+      .trim()
+      .refine(isValidDateString, 'Hạn ngày trả không hợp lệ (định dạng YYYY-MM-DD).'),
+    borrowNote: z
+      .string()
+      .optional()
+      .nullable()
+      .transform((v) => {
+        if (!v) return null;
+        const cleaned = cleanDisplayText(v);
+        return cleaned === '' ? null : cleaned;
+      })
+      .refine((v) => v === null || v.length <= 300, 'Ghi chú mượn tối đa 300 ký tự.'),
+  })
+  .superRefine((data, ctx) => {
+    if (data.loanType === 'INDIVIDUAL') {
+      if (data.studentName.length < 2 || data.studentName.length > 100) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['studentName'],
+          message: 'Tên học sinh phải từ 2 đến 100 ký tự.',
+        });
+      }
     }
-  }),
-  dueDate: z
-    .string()
-    .trim()
-    .refine(isValidDateString, 'Hạn ngày trả không hợp lệ (định dạng YYYY-MM-DD).'),
-  borrowNote: z
-    .string()
-    .optional()
-    .nullable()
-    .transform((v) => {
-      if (!v) return null;
-      const cleaned = cleanDisplayText(v);
-      return cleaned === '' ? null : cleaned;
-    })
-    .refine((v) => v === null || v.length <= 300, 'Ghi chú mượn tối đa 300 ký tự.'),
-});
+  });
 
 export const returnLoanSchema = z.object({
   returnNote: z

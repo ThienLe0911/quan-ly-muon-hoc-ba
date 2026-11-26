@@ -1,8 +1,8 @@
-> Status: Approved (2026-11-25)
+> Status: Approved (2026-11-26)
 
 # Kiến trúc hệ thống (Architecture) — `quan-ly-hoc-ba`
 
-> **Lưu ý SPDD:** Các lựa chọn công nghệ, cơ chế xác thực và quy tắc định danh/quá hạn trong tài liệu này đã được chủ dự án phê duyệt theo các ADR `Accepted` ([`002`](decisions/002-co-che-xac-thuc-va-phan-quyen.md), [`003`](decisions/003-dinh-danh-hoc-ba-va-quy-tac-qua-han.md), [`004`](decisions/004-trien-khai-vercel-va-co-so-du-lieu-turso.md) thay thế [`001`](decisions/001-tech-stack-va-co-so-du-lieu.md)).
+> **Lưu ý SPDD:** Các lựa chọn công nghệ, cơ chế xác thực và quy tắc định danh/quá hạn trong tài liệu này đã được chủ dự án phê duyệt theo các ADR `Accepted` ([`002`](decisions/002-co-che-xac-thuc-va-phan-quyen.md), [`003`](decisions/003-dinh-danh-hoc-ba-va-quy-tac-qua-han.md), [`004`](decisions/004-trien-khai-vercel-va-co-so-du-lieu-turso.md) thay thế [`001`](decisions/001-tech-stack-va-co-so-du-lieu.md), và [`005`](decisions/005-bo-sung-loai-muon-ca-lop-va-chan-trung-cheo.md)).
 
 ---
 
@@ -36,7 +36,7 @@ Hệ thống được thiết kế theo mô hình **Full-stack Next.js Serverles
 | `id` | `INTEGER` | `PRIMARY KEY AUTOINCREMENT` | ID tài khoản |
 | `username` | `TEXT` | `NOT NULL UNIQUE` | Tên đăng nhập (chuẩn hóa lowercase, không dấu cách) |
 | `password_hash` | `TEXT` | `NOT NULL` | Chuỗi băm mật khẩu (`scrypt`: `salt:hash`) |
-| `full_name` | `TEXT` | `NOT NULL` | Họ và tên giáo viên / văn thư |
+| `full_name` | `TEXT` | `NOT NULL` | Họ và tên giáo viên / giáo vụ |
 | `role` | `TEXT` | `NOT NULL CHECK(role IN ('ADMIN','TEACHER'))` | Vai trò người dùng |
 | `phone` | `TEXT` | `NULL` | Số điện thoại liên hệ khi cần nhắc trả |
 | `unit` | `TEXT` | `NULL` | Lớp chủ nhiệm hoặc Tổ chuyên môn (vd: `3A`, `Tổ 4-5`, `Văn phòng`) |
@@ -62,10 +62,13 @@ Hệ thống được thiết kế theo mô hình **Full-stack Next.js Serverles
 | `teacher_name_snapshot` | `TEXT` | `NOT NULL` | Họ tên giáo viên tại thời điểm mượn |
 | `teacher_phone_snapshot` | `TEXT` | `NULL` | SĐT giáo viên tại thời điểm mượn |
 | `teacher_unit_snapshot` | `TEXT` | `NULL` | Lớp/Tổ chuyên môn giáo viên tại thời điểm mượn |
+| `loan_type` | `TEXT` | `NOT NULL DEFAULT 'INDIVIDUAL' CHECK(loan_type IN ('INDIVIDUAL','WHOLE_CLASS'))` | Loại mượn: `INDIVIDUAL` (riêng lẻ) hoặc `WHOLE_CLASS` (toàn bộ 1 lớp) |
 | `class_name` | `TEXT` | `NOT NULL` | Tên lớp học sinh (vd: `3A`) |
-| `student_name` | `TEXT` | `NOT NULL` | Họ và tên học sinh (vd: `Nguyễn Văn An`) |
+| `student_name` | `TEXT` | `NOT NULL` | Họ tên học sinh (`INDIVIDUAL`) hoặc nhãn `"Toàn bộ lớp"` (`WHOLE_CLASS`) |
 | `school_year` | `TEXT` | `NOT NULL` | Niên khóa học bạ (vd: `2025-2026`) |
-| `record_identity_key` | `TEXT` | `NOT NULL` | Khóa chuẩn hóa để chống mượn trùng (`class\|student\|school_year`) |
+| `quantity` | `INTEGER` | `NULL` | Số lượng quyển học bạ (tùy chọn `1..200`, áp dụng cho `WHOLE_CLASS`) |
+| `record_identity_key` | `TEXT` | `NOT NULL` | Khóa chuẩn hóa chống mượn trùng (`class\|student\|school_year` hoặc `class:class\|school_year`) |
+| `class_year_key` | `TEXT` | `NOT NULL DEFAULT ''` | Khóa chuẩn hóa theo lớp + niên khóa (`normClass\|normSchoolYear`) phục vụ chặn trùng chéo 2 chiều |
 | `class_name_norm` | `TEXT` | `NOT NULL DEFAULT ''` | Tên lớp chuẩn hóa không dấu/chữ thường phục vụ lọc lớp trên Turso |
 | `search_text` | `TEXT` | `NOT NULL DEFAULT ''` | Chuỗi tìm kiếm không dấu/chữ thường (`student_name`, `class_name`, `school_year`, `teacher_name_snapshot`, `teacher_unit_snapshot`, `teacher_phone_snapshot`) |
 | `borrowed_at` | `TEXT` | `NOT NULL` | Thời điểm mượn chính xác (ISO-8601 UTC) |
@@ -99,6 +102,10 @@ Hệ thống được thiết kế theo mô hình **Full-stack Next.js Serverles
 - Truy vấn phiếu theo giáo viên:
   ```sql
   CREATE INDEX idx_loan_teacher_status ON loan_records(teacher_id, status);
+  ```
+- Kiểm tra chặn trùng chéo 2 chiều theo Lớp + Niên khóa:
+  ```sql
+  CREATE INDEX idx_loan_class_year_status ON loan_records(class_year_key, status);
   ```
 
 ### 2.4. Bảng `system_settings` (Cấu hình hệ thống)
@@ -136,14 +143,17 @@ Khóa mặc định khởi tạo khi seed:
 
 ## 3. Quy tắc ngày giờ, chuẩn hóa định danh và tính độ lố hạn
 
-### 3.1. Chuẩn hóa định danh học bạ (`record_identity_key`)
-Để tránh trường hợp cùng một học bạ nhưng giáo viên gõ khác hoa/thường hoặc dư khoảng trắng:
+### 3.1. Chuẩn hóa định danh học bạ (`record_identity_key`) và khóa lớp–niên khóa (`class_year_key`)
+Để tránh trường hợp cùng một học bạ hoặc cùng một lớp nhưng giáo viên gõ khác hoa/thường hoặc dư khoảng trắng:
 - Mỗi thành phần (`class_name`, `student_name`, `school_year`) được:
   1. Chuẩn hóa Unicode về dạng `NFC`.
   2. Cắt khoảng trắng đầu/cuối (`trim`) và gộp nhiều khoảng trắng liên tiếp thành 1 khoảng trắng.
-  3. Với `school_year`, chuẩn hóa dấu gạch nối dài (`–`, `—`) thành `-` và bỏ khoảng trắng quanh `-` (vd: `2025 - 2026` → `2025-2026`).
+  3. Với `school_year`, chuẩn hóa dấu gạch nối dài (`–`, `—`, `−`) thành `-` và bỏ khoảng trắng quanh `-` (vd: `2025 - 2026` → `2025-2026`).
   4. Chuyển sang chữ thường theo locale tiếng Việt (`toLocaleLowerCase('vi-VN')`).
-- Ghép thành khóa duy nhất: `${normClass}|${normStudent}|${normSchoolYear}`.
+- Khóa định danh và chống trùng chéo (ADR-005):
+  - `class_year_key`: `${normClass}|${normSchoolYear}` (dùng để kiểm tra xung đột chéo 2 chiều giữa mượn cả lớp và mượn riêng lẻ).
+  - `record_identity_key` với `INDIVIDUAL`: `${normClass}|${normStudent}|${normSchoolYear}`.
+  - `record_identity_key` với `WHOLE_CLASS`: `class:${normClass}|${normSchoolYear}` (`student_name` hiển thị mặc định là `"Toàn bộ lớp"`).
 - Dữ liệu hiển thị cho người dùng giữ nguyên phần đã cắt/gộp khoảng trắng gọn gàng (`displayValue`).
 
 ### 3.2. Tính toán hạn trả & độ lố hạn theo giờ Việt Nam (`Asia/Ho_Chi_Minh`)

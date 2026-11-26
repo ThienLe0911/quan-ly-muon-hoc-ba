@@ -19,7 +19,11 @@ import {
   getVNDayStartUtcIso,
   isValidDateString,
 } from '@/lib/domain/overdue';
-import { cleanDisplayText, normalizeRecordIdentity } from '@/lib/domain/record-identity';
+import {
+  cleanDisplayText,
+  normalizeRecordIdentity,
+  normalizeWholeClassIdentity,
+} from '@/lib/domain/record-identity';
 import {
   buildClassNameNorm,
   buildLoanSearchText,
@@ -43,6 +47,23 @@ function buildDuplicateLoanMessage(loan: typeof loanRecords.$inferSelect): strin
   return `Học bạ lớp ${loan.className} - ${loan.studentName} (${loan.schoolYear}) hiện đang được giáo viên ${loan.teacherNameSnapshot} mượn từ ngày ${borrowedVn} và chưa trả (hạn trả ${dueVn}).`;
 }
 
+function buildWholeClassConflictMessage(loan: typeof loanRecords.$inferSelect): string {
+  const borrowedVn = formatDateVN(loan.borrowedAt);
+  const dueVn = formatDateVN(loan.dueDate);
+  return `Toàn bộ học bạ lớp ${loan.className} (${loan.schoolYear}) hiện đang được giáo viên ${loan.teacherNameSnapshot} mượn từ ngày ${borrowedVn} và chưa trả (hạn trả ${dueVn}).`;
+}
+
+function buildIndividualBlocksWholeClassMessage(
+  className: string,
+  schoolYear: string,
+  activeIndividuals: Array<typeof loanRecords.$inferSelect>
+): string {
+  const first = activeIndividuals[0];
+  const borrowedVn = formatDateVN(first.borrowedAt);
+  const dueVn = formatDateVN(first.dueDate);
+  return `Không thể mượn toàn bộ lớp ${className} (${schoolYear}) vì hiện đang có ${activeIndividuals.length} học bạ mượn riêng lẻ chưa trả (ví dụ: em ${first.studentName} do giáo viên ${first.teacherNameSnapshot} mượn từ ngày ${borrowedVn}, hạn trả ${dueVn}).`;
+}
+
 export const GET = withApiErrorHandling(async (req: Request) => {
   const auth = await requireAuth(req);
   if (auth.errorResponse) return auth.errorResponse;
@@ -50,6 +71,7 @@ export const GET = withApiErrorHandling(async (req: Request) => {
   const url = new URL(req.url);
   const q = url.searchParams.get('q')?.trim() || '';
   const status = url.searchParams.get('status')?.trim().toUpperCase() || 'ALL';
+  const loanTypeParam = url.searchParams.get('loanType')?.trim().toUpperCase() || '';
   const overdueOnly = url.searchParams.get('overdueOnly') === 'true';
   const overdueTier = url.searchParams.get('overdueTier')?.trim().toUpperCase() || '';
   const teacherIdParam = url.searchParams.get('teacherId')?.trim() || '';
@@ -75,6 +97,10 @@ export const GET = withApiErrorHandling(async (req: Request) => {
     if (tid > 0) {
       conditions.push(eq(loanRecords.teacherId, tid));
     }
+  }
+
+  if (loanTypeParam === 'INDIVIDUAL' || loanTypeParam === 'WHOLE_CLASS') {
+    conditions.push(eq(loanRecords.loanType, loanTypeParam));
   }
 
   if (status === 'BORROWED' || status === 'RETURNED' || status === 'CANCELLED') {
@@ -219,11 +245,19 @@ export const POST = withApiErrorHandling(async (req: Request) => {
     );
   }
 
-  const identity = normalizeRecordIdentity({
-    className: validated.data.className,
-    studentName: validated.data.studentName,
-    schoolYear: validated.data.schoolYear,
-  });
+  const loanType = validated.data.loanType;
+  const quantity = loanType === 'WHOLE_CLASS' ? (validated.data.quantity ?? null) : null;
+  const identity =
+    loanType === 'WHOLE_CLASS'
+      ? normalizeWholeClassIdentity({
+          className: validated.data.className,
+          schoolYear: validated.data.schoolYear,
+        })
+      : normalizeRecordIdentity({
+          className: validated.data.className,
+          studentName: validated.data.studentName,
+          schoolYear: validated.data.schoolYear,
+        });
 
   const db = await getDb();
   const settings = await readLoanSettings(db);
@@ -246,32 +280,86 @@ export const POST = withApiErrorHandling(async (req: Request) => {
     );
   }
 
-  const findExistingActiveLoan = async () =>
-    db
-      .select()
-      .from(loanRecords)
-      .where(
-        and(
-          eq(loanRecords.recordIdentityKey, identity.recordIdentityKey),
-          eq(loanRecords.status, 'BORROWED')
-        )
-      )
-      .limit(1)
-      .get();
-
-  const existingActive = await findExistingActiveLoan();
-  if (existingActive) {
-    return jsonError(
-      'DUPLICATE_ACTIVE_LOAN',
-      buildDuplicateLoanMessage(existingActive),
-      409,
-      { existingLoan: sanitizeConflictLoan(existingActive) }
-    );
-  }
-
   const now = new Date().toISOString();
   try {
-    const created = await withWriteTransaction(db, async (tx) => {
+    const txResult = await withWriteTransaction(db, async (tx) => {
+      if (loanType === 'WHOLE_CLASS') {
+        const activeInClass = await tx
+          .select()
+          .from(loanRecords)
+          .where(
+            and(
+              eq(loanRecords.classYearKey, identity.classYearKey),
+              eq(loanRecords.status, 'BORROWED')
+            )
+          )
+          .orderBy(asc(loanRecords.borrowedAt), asc(loanRecords.id))
+          .all();
+
+        if (activeInClass.length > 0) {
+          const existingWholeClass = activeInClass.find((r) => r.loanType === 'WHOLE_CLASS');
+          if (existingWholeClass) {
+            return {
+              kind: 'CONFLICT' as const,
+              conflictLoan: existingWholeClass,
+              message: buildWholeClassConflictMessage(existingWholeClass),
+            };
+          }
+          return {
+            kind: 'CONFLICT' as const,
+            conflictLoan: activeInClass[0],
+            message: buildIndividualBlocksWholeClassMessage(
+              identity.className,
+              identity.schoolYear,
+              activeInClass
+            ),
+          };
+        }
+      } else {
+        // Kiểm tra xem cả lớp đã đang bị mượn chưa (chặn chéo)
+        const activeWholeClass = await tx
+          .select()
+          .from(loanRecords)
+          .where(
+            and(
+              eq(loanRecords.classYearKey, identity.classYearKey),
+              eq(loanRecords.loanType, 'WHOLE_CLASS'),
+              eq(loanRecords.status, 'BORROWED')
+            )
+          )
+          .limit(1)
+          .get();
+
+        if (activeWholeClass) {
+          return {
+            kind: 'CONFLICT' as const,
+            conflictLoan: activeWholeClass,
+            message: buildWholeClassConflictMessage(activeWholeClass),
+          };
+        }
+
+        // Kiểm tra trùng học sinh lẻ
+        const existingIndividual = await tx
+          .select()
+          .from(loanRecords)
+          .where(
+            and(
+              eq(loanRecords.recordIdentityKey, identity.recordIdentityKey),
+              eq(loanRecords.status, 'BORROWED')
+            )
+          )
+          .limit(1)
+          .get();
+
+        if (existingIndividual) {
+          return {
+            kind: 'CONFLICT' as const,
+            conflictLoan: existingIndividual,
+            message: buildDuplicateLoanMessage(existingIndividual),
+          };
+        }
+      }
+
       const inserted = await tx
         .insert(loanRecords)
         .values({
@@ -279,10 +367,13 @@ export const POST = withApiErrorHandling(async (req: Request) => {
           teacherNameSnapshot: auth.user.fullName,
           teacherPhoneSnapshot: auth.user.phone,
           teacherUnitSnapshot: auth.user.unit,
+          loanType,
           className: identity.className,
           studentName: identity.studentName,
           schoolYear: identity.schoolYear,
+          quantity,
           recordIdentityKey: identity.recordIdentityKey,
+          classYearKey: identity.classYearKey,
           classNameNorm: buildClassNameNorm(identity.className),
           searchText: buildLoanSearchText({
             studentName: identity.studentName,
@@ -291,6 +382,7 @@ export const POST = withApiErrorHandling(async (req: Request) => {
             teacherNameSnapshot: auth.user.fullName,
             teacherUnitSnapshot: auth.user.unit,
             teacherPhoneSnapshot: auth.user.phone,
+            loanType,
           }),
           borrowedAt: now,
           dueDate: validated.data.dueDate,
@@ -309,26 +401,46 @@ export const POST = withApiErrorHandling(async (req: Request) => {
           targetType: 'LOAN',
           targetId: inserted.id,
           metadata: {
+            loanType: inserted.loanType,
             className: inserted.className,
             studentName: inserted.studentName,
             schoolYear: inserted.schoolYear,
+            quantity: inserted.quantity,
             dueDate: inserted.dueDate,
           },
         },
         tx
       );
 
-      return inserted;
+      return { kind: 'CREATED' as const, created: inserted };
     });
 
-    return jsonSuccess((await enrichLoanRows([created], todayVN))[0], undefined, 201);
+    if (txResult.kind === 'CONFLICT') {
+      return jsonError('DUPLICATE_ACTIVE_LOAN', txResult.message, 409, {
+        existingLoan: sanitizeConflictLoan(txResult.conflictLoan),
+      });
+    }
+
+    return jsonSuccess((await enrichLoanRows([txResult.created], todayVN))[0], undefined, 201);
   } catch (err) {
     if (isSqliteUniqueError(err)) {
-      const conflictLoan = await findExistingActiveLoan();
+      const conflictLoan = await db
+        .select()
+        .from(loanRecords)
+        .where(
+          and(
+            eq(loanRecords.recordIdentityKey, identity.recordIdentityKey),
+            eq(loanRecords.status, 'BORROWED')
+          )
+        )
+        .limit(1)
+        .get();
       return jsonError(
         'DUPLICATE_ACTIVE_LOAN',
         conflictLoan
-          ? buildDuplicateLoanMessage(conflictLoan)
+          ? conflictLoan.loanType === 'WHOLE_CLASS'
+            ? buildWholeClassConflictMessage(conflictLoan)
+            : buildDuplicateLoanMessage(conflictLoan)
           : 'Học bạ này hiện đang được mượn và chưa trả.',
         409,
         conflictLoan ? { existingLoan: sanitizeConflictLoan(conflictLoan) } : undefined

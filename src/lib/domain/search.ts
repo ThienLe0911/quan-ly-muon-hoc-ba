@@ -14,7 +14,7 @@ export function stripVietnameseAccents(val: string): string {
 /**
  * Chuẩn hóa chuỗi tìm kiếm lưu trên DB (tương thích Turso không cần SQLite JS UDF):
  * - Giữ bản NFC chữ thường theo tiếng Việt để khớp chính xác có dấu và NFD từ client.
- * - Kèm bản không dấu để hỗ trợ tìm kiếm không dấu tiện lợi cho văn thư/giáo viên.
+ * - Kèm bản không dấu để hỗ trợ tìm kiếm không dấu tiện lợi cho giáo vụ/giáo viên.
  * - Ngăn cách bằng '\n' để không tạo chuỗi giả chứa wildcard '_' hay '%'.
  */
 export function buildSearchText(parts: Array<string | null | undefined>): string {
@@ -47,9 +47,11 @@ export function buildLoanSearchText(input: {
   teacherNameSnapshot: string;
   teacherUnitSnapshot?: string | null;
   teacherPhoneSnapshot?: string | null;
+  loanType?: 'INDIVIDUAL' | 'WHOLE_CLASS';
 }): string {
   return buildSearchText([
     input.studentName,
+    input.loanType === 'WHOLE_CLASS' ? 'Cả lớp' : null,
     input.className,
     input.schoolYear,
     input.teacherNameSnapshot,

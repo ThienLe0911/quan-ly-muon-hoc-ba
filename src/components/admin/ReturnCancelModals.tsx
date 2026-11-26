@@ -58,10 +58,29 @@ export function ReturnLoanModal({ loan, onClose, onDone }: ReturnModalProps) {
         </div>
 
         <div className="mb-4 rounded-xl border border-slate-200 bg-slate-50 p-3.5 text-sm">
-          <div className="font-semibold text-slate-900">
-            Lớp {loan.className} · {loan.studentName}
+          <div className="flex flex-wrap items-center gap-1.5 font-semibold text-slate-900">
+            {loan.loanType === 'WHOLE_CLASS' ? (
+              <span className="inline-flex items-center rounded-md bg-indigo-100 px-1.5 py-0.5 text-[11px] font-bold text-indigo-800">
+                Cả lớp
+              </span>
+            ) : (
+              <span className="inline-flex items-center rounded-md bg-slate-100 px-1.5 py-0.5 text-[11px] font-semibold text-slate-600">
+                Riêng lẻ
+              </span>
+            )}
+            <span>
+              Lớp {loan.className} · {loan.studentName}
+            </span>
           </div>
-          <div className="text-xs text-slate-600">Niên khóa: {loan.schoolYear}</div>
+          <div className="mt-0.5 text-xs text-slate-600">
+            Niên khóa: {loan.schoolYear}
+            {loan.loanType === 'WHOLE_CLASS' && loan.quantity ? (
+              <>
+                {' '}
+                · Số lượng khi mượn: <strong>{loan.quantity} quyển</strong>
+              </>
+            ) : null}
+          </div>
           <div className="mt-1 text-xs text-slate-600">
             Giáo viên mượn: <strong>{loan.teacherNameSnapshot}</strong> · Hạn trả:{' '}
             <strong>{formatDateVN(loan.dueDate)}</strong>
@@ -167,8 +186,20 @@ export function CancelLoanModal({ loan, onClose, onDone }: CancelModalProps) {
         </div>
 
         <div className="mb-4 rounded-xl border border-slate-200 bg-slate-50 p-3.5 text-sm">
-          <div className="font-semibold text-slate-900">
-            Lớp {loan.className} · {loan.studentName} ({loan.schoolYear})
+          <div className="flex flex-wrap items-center gap-1.5 font-semibold text-slate-900">
+            {loan.loanType === 'WHOLE_CLASS' ? (
+              <span className="inline-flex items-center rounded-md bg-indigo-100 px-1.5 py-0.5 text-[11px] font-bold text-indigo-800">
+                Cả lớp
+              </span>
+            ) : (
+              <span className="inline-flex items-center rounded-md bg-slate-100 px-1.5 py-0.5 text-[11px] font-semibold text-slate-600">
+                Riêng lẻ
+              </span>
+            )}
+            <span>
+              Lớp {loan.className} · {loan.studentName} ({loan.schoolYear})
+              {loan.loanType === 'WHOLE_CLASS' && loan.quantity ? ` · ${loan.quantity} quyển` : ''}
+            </span>
           </div>
           <div className="mt-1 text-xs text-slate-600">
             Giáo viên: <strong>{loan.teacherNameSnapshot}</strong>

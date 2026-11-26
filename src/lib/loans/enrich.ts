@@ -8,7 +8,7 @@ import {
 } from '@/lib/domain/overdue';
 
 export interface LoanDto
-  extends Omit<LoanRecordRow, 'searchText' | 'classNameNorm'>,
+  extends Omit<LoanRecordRow, 'searchText' | 'classNameNorm' | 'classYearKey'>,
     LoanTimingClassification {
   returnedByAdminName: string | null;
   cancelledByAdminName: string | null;
@@ -41,9 +41,15 @@ export async function enrichLoanRows(
   }
 
   return rows.map((row) => {
-    const { searchText: _searchText, classNameNorm: _classNameNorm, ...publicRow } = row;
+    const {
+      searchText: _searchText,
+      classNameNorm: _classNameNorm,
+      classYearKey: _classYearKey,
+      ...publicRow
+    } = row;
     void _searchText;
     void _classNameNorm;
+    void _classYearKey;
     const timing = classifyLoanTiming(publicRow.dueDate, publicRow.status as LoanStatus, todayVN);
     return {
       ...publicRow,

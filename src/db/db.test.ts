@@ -245,4 +245,51 @@ describe('Tầng cơ sở dữ liệu libSQL/Turso & Migration (T02)', () => {
       else process.env.SEED_ADMIN_MUST_CHANGE_PASSWORD = prevMust;
     }
   });
+
+  it('migration 0002 bổ sung cột loan_type, class_year_key, quantity và backfill dữ liệu cũ an toàn', async () => {
+    const { createClient } = await import('@libsql/client');
+    const { MIGRATIONS } = await import('./migrations/registry');
+    const { runMigrations } = await import('./migrate');
+
+    const client = createClient({ url: ':memory:' });
+    try {
+      await client.execute(
+        'CREATE TABLE IF NOT EXISTS _migrations (name TEXT PRIMARY KEY, applied_at TEXT NOT NULL)'
+      );
+      // Chỉ chạy 0000 và 0001 (giả lập DB cũ trước khi nâng cấp)
+      for (const m of MIGRATIONS.slice(0, 2)) {
+        for (const stmt of m.statements) {
+          await client.execute(stmt);
+        }
+        await client.execute({
+          sql: 'INSERT INTO _migrations (name, applied_at) VALUES (?, ?)',
+          args: [m.name, new Date().toISOString()],
+        });
+      }
+
+      const now = new Date().toISOString();
+      await client.execute({
+        sql: `INSERT INTO users (id, username, password_hash, full_name, role, created_at, updated_at)
+              VALUES (1, 'gv_old', 's:h', 'Cô Cũ', 'TEACHER', ?, ?)`,
+        args: [now, now],
+      });
+      await client.execute({
+        sql: `INSERT INTO loan_records (teacher_id, teacher_name_snapshot, class_name, student_name, school_year, record_identity_key, borrowed_at, due_date, status, created_at, updated_at)
+              VALUES (1, 'Cô Cũ', ' 3A ', 'Nguyễn Văn An', '2025-2026', '3a|nguyễn văn an|2025-2026', ?, '2026-12-01', 'BORROWED', ?, ?)`,
+        args: [now, now, now],
+      });
+
+      const applied = await runMigrations(client);
+      expect(applied).toEqual(['0002_loan_type_and_whole_class.sql']);
+
+      const row = (
+        await client.execute('SELECT loan_type, class_year_key, quantity FROM loan_records LIMIT 1')
+      ).rows[0];
+      expect(row.loan_type).toBe('INDIVIDUAL');
+      expect(row.class_year_key).toBe('3a|2025-2026');
+      expect(row.quantity).toBeNull();
+    } finally {
+      client.close();
+    }
+  });
 });

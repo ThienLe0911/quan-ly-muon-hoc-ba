@@ -1,3 +1,7 @@
+export const WHOLE_CLASS_STUDENT_LABEL = 'Toàn bộ lớp';
+
+export type LoanType = 'INDIVIDUAL' | 'WHOLE_CLASS';
+
 export function cleanDisplayText(input: string): string {
   return input.normalize('NFC').trim().replace(/\s+/g, ' ');
 }
@@ -8,12 +12,16 @@ export interface SchoolYearValidationResult {
   error?: string;
 }
 
-export function normalizeAndValidateSchoolYear(input: string): SchoolYearValidationResult {
-  const normalized = input
+function normalizeSchoolYearRaw(input: string): string {
+  return input
     .normalize('NFC')
     .trim()
     .replace(/\s*[–—−-]\s*/g, '-')
     .replace(/\s+/g, '');
+}
+
+export function normalizeAndValidateSchoolYear(input: string): SchoolYearValidationResult {
+  const normalized = normalizeSchoolYearRaw(input);
 
   const match = /^(\d{4})-(\d{4})$/.exec(normalized);
   if (!match) {
@@ -59,7 +67,14 @@ export interface NormalizedRecordIdentity {
   className: string;
   studentName: string;
   schoolYear: string;
+  classYearKey: string;
   recordIdentityKey: string;
+}
+
+export function buildClassYearKey(className: string, schoolYear: string): string {
+  const c = cleanDisplayText(className).toLocaleLowerCase('vi-VN');
+  const y = normalizeSchoolYearRaw(schoolYear).toLocaleLowerCase('vi-VN');
+  return `${c}|${y}`;
 }
 
 export function buildRecordIdentityKey(
@@ -69,8 +84,12 @@ export function buildRecordIdentityKey(
 ): string {
   const c = cleanDisplayText(className).toLocaleLowerCase('vi-VN');
   const s = cleanDisplayText(studentName).toLocaleLowerCase('vi-VN');
-  const y = schoolYear.normalize('NFC').trim().toLocaleLowerCase('vi-VN');
+  const y = normalizeSchoolYearRaw(schoolYear).toLocaleLowerCase('vi-VN');
   return `${c}|${s}|${y}`;
+}
+
+export function buildWholeClassIdentityKey(className: string, schoolYear: string): string {
+  return `class:${buildClassYearKey(className, schoolYear)}`;
 }
 
 export function normalizeRecordIdentity(params: {
@@ -90,6 +109,27 @@ export function normalizeRecordIdentity(params: {
     className,
     studentName,
     schoolYear: schoolYearCheck.normalized,
+    classYearKey: buildClassYearKey(className, schoolYearCheck.normalized),
     recordIdentityKey: buildRecordIdentityKey(className, studentName, schoolYearCheck.normalized),
+  };
+}
+
+export function normalizeWholeClassIdentity(params: {
+  className: string;
+  schoolYear: string;
+}): NormalizedRecordIdentity {
+  const className = cleanDisplayText(params.className);
+  const schoolYearCheck = normalizeAndValidateSchoolYear(params.schoolYear);
+
+  if (!schoolYearCheck.valid) {
+    throw new Error(schoolYearCheck.error || 'Niên khóa không hợp lệ.');
+  }
+
+  return {
+    className,
+    studentName: WHOLE_CLASS_STUDENT_LABEL,
+    schoolYear: schoolYearCheck.normalized,
+    classYearKey: buildClassYearKey(className, schoolYearCheck.normalized),
+    recordIdentityKey: buildWholeClassIdentityKey(className, schoolYearCheck.normalized),
   };
 }

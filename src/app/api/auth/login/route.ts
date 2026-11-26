@@ -91,7 +91,7 @@ export const POST = withApiErrorHandling(async (req: Request) => {
     });
     return jsonError(
       'ACCOUNT_LOCKED',
-      'Tài khoản của bạn hiện đang bị khóa. Vui lòng liên hệ văn thư.',
+      'Tài khoản của bạn hiện đang bị khóa. Vui lòng liên hệ Giáo vụ.',
       403
     );
   }

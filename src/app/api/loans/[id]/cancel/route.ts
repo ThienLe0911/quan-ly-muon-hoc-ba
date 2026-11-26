@@ -67,9 +67,11 @@ export const POST = withApiErrorHandling(
           targetType: 'LOAN',
           targetId: loanId,
           metadata: {
+            loanType: updatedRow.loanType,
             className: updatedRow.className,
             studentName: updatedRow.studentName,
             schoolYear: updatedRow.schoolYear,
+            quantity: updatedRow.quantity,
             reason: validated.data.reason,
           },
         },

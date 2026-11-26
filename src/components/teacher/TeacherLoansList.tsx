@@ -115,10 +115,26 @@ export function TeacherLoansList({
                     className={loan.isInRedList ? 'bg-red-50/60' : 'hover:bg-slate-50'}
                   >
                     <td className="py-3 pr-4">
-                      <div className="font-semibold text-slate-900">
-                        {loan.className} · {loan.studentName}
+                      <div className="flex flex-wrap items-center gap-1.5 font-semibold text-slate-900">
+                        {loan.loanType === 'WHOLE_CLASS' ? (
+                          <span className="inline-flex items-center rounded-md bg-indigo-100 px-1.5 py-0.5 text-[11px] font-bold text-indigo-800">
+                            Cả lớp
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center rounded-md bg-slate-100 px-1.5 py-0.5 text-[11px] font-semibold text-slate-600">
+                            Riêng lẻ
+                          </span>
+                        )}
+                        <span>
+                          {loan.className} · {loan.studentName}
+                        </span>
                       </div>
-                      <div className="text-xs text-slate-500">Niên khóa: {loan.schoolYear}</div>
+                      <div className="mt-0.5 text-xs text-slate-500">
+                        Niên khóa: {loan.schoolYear}
+                        {loan.loanType === 'WHOLE_CLASS' && loan.quantity
+                          ? ` · ${loan.quantity} quyển`
+                          : ''}
+                      </div>
                     </td>
                     <td className="py-3 pr-4 text-slate-700">{formatDateTimeVN(loan.borrowedAt)}</td>
                     <td className="py-3 pr-4 font-medium text-slate-900">
@@ -162,10 +178,26 @@ export function TeacherLoansList({
               >
                 <div className="flex items-start justify-between gap-2">
                   <div>
-                    <div className="font-semibold text-slate-900">
-                      {loan.className} · {loan.studentName}
+                    <div className="flex flex-wrap items-center gap-1.5 font-semibold text-slate-900">
+                      {loan.loanType === 'WHOLE_CLASS' ? (
+                        <span className="inline-flex items-center rounded-md bg-indigo-100 px-1.5 py-0.5 text-[11px] font-bold text-indigo-800">
+                          Cả lớp
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center rounded-md bg-slate-100 px-1.5 py-0.5 text-[11px] font-semibold text-slate-600">
+                          Riêng lẻ
+                        </span>
+                      )}
+                      <span>
+                        {loan.className} · {loan.studentName}
+                      </span>
                     </div>
-                    <div className="text-xs text-slate-500">Niên khóa: {loan.schoolYear}</div>
+                    <div className="mt-0.5 text-xs text-slate-500">
+                      Niên khóa: {loan.schoolYear}
+                      {loan.loanType === 'WHOLE_CLASS' && loan.quantity
+                        ? ` · ${loan.quantity} quyển`
+                        : ''}
+                    </div>
                   </div>
                   <StatusBadge
                     status={loan.status}

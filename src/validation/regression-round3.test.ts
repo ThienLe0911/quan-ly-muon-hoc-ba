@@ -229,9 +229,10 @@ describe('Kiểm thử hồi quy QA Vòng 3 — Kiến trúc Vercel + Turso (ADR
           args: [JSON.stringify({ studentName: 'Nguyễn Ngọc Ánh', className: '3Đ' }), now],
         });
 
-        // Chạy runMigrations -> áp dụng 0001 và tự backfill
+        // Chạy runMigrations -> áp dụng các migration mới (0001, 0002) và tự backfill
         const newlyApplied = await runMigrations(client);
-        expect(newlyApplied).toEqual(['0001_turso_search_and_ratelimit.sql']);
+        expect(newlyApplied).toContain('0001_turso_search_and_ratelimit.sql');
+        expect(newlyApplied).toContain('0002_loan_type_and_whole_class.sql');
 
         // Chạy lần 2 phải idempotent
         const secondRun = await runMigrations(client);

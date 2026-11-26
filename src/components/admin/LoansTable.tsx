@@ -44,6 +44,7 @@ export function LoansTable({
   const [qInput, setQInput] = useState('');
   const [debouncedQ, setDebouncedQ] = useState('');
   const [statusFilter, setStatusFilter] = useState('ALL');
+  const [loanTypeFilter, setLoanTypeFilter] = useState('');
   const [teacherIdFilter, setTeacherIdFilter] = useState('');
   const [classInput, setClassInput] = useState('');
   const [debouncedClass, setDebouncedClass] = useState('');
@@ -109,6 +110,7 @@ export function LoansTable({
     if (tab === 'ALL_LIST') {
       params.set('status', statusFilter);
       params.set('sort', 'borrowed_desc');
+      if (loanTypeFilter) params.set('loanType', loanTypeFilter);
       if (teacherIdFilter) params.set('teacherId', teacherIdFilter);
       if (debouncedClass) params.set('className', debouncedClass);
       if (debouncedSchoolYear) params.set('schoolYear', debouncedSchoolYear);
@@ -151,6 +153,7 @@ export function LoansTable({
     page,
     debouncedQ,
     statusFilter,
+    loanTypeFilter,
     teacherIdFilter,
     debouncedClass,
     debouncedSchoolYear,
@@ -178,6 +181,7 @@ export function LoansTable({
 
   const hasAllListExtraFilter =
     statusFilter !== 'ALL' ||
+    loanTypeFilter !== '' ||
     teacherIdFilter !== '' ||
     classInput !== '' ||
     schoolYearInput !== '' ||
@@ -185,6 +189,7 @@ export function LoansTable({
 
   const resetAllListFilters = () => {
     setStatusFilter('ALL');
+    setLoanTypeFilter('');
     setTeacherIdFilter('');
     setClassInput('');
     setSchoolYearInput('');
@@ -275,7 +280,21 @@ export function LoansTable({
             ))}
           </div>
 
-          <div className="grid grid-cols-1 gap-2.5 rounded-xl border border-slate-200 bg-slate-50 p-3 sm:grid-cols-4">
+          <div className="grid grid-cols-1 gap-2.5 rounded-xl border border-slate-200 bg-slate-50 p-3 sm:grid-cols-2 lg:grid-cols-5">
+            <select
+              aria-label="Lọc theo loại mượn"
+              value={loanTypeFilter}
+              onChange={(e) => {
+                setLoanTypeFilter(e.target.value);
+                setPage(1);
+              }}
+              className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs text-slate-700 focus:border-blue-600 focus:outline-none"
+            >
+              <option value="">Tất cả loại mượn</option>
+              <option value="WHOLE_CLASS">Mượn toàn bộ lớp</option>
+              <option value="INDIVIDUAL">Mượn riêng lẻ học sinh</option>
+            </select>
+
             <select
               aria-label="Lọc theo giáo viên"
               value={teacherIdFilter}
@@ -499,10 +518,26 @@ export function LoansTable({
                     }
                   >
                     <td className="py-3 pr-4">
-                      <div className="font-semibold text-slate-900">
-                        {loan.className} · {loan.studentName}
+                      <div className="flex flex-wrap items-center gap-1.5 font-semibold text-slate-900">
+                        {loan.loanType === 'WHOLE_CLASS' ? (
+                          <span className="inline-flex items-center rounded-md bg-indigo-100 px-1.5 py-0.5 text-[11px] font-bold text-indigo-800">
+                            Cả lớp
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center rounded-md bg-slate-100 px-1.5 py-0.5 text-[11px] font-semibold text-slate-600">
+                            Riêng lẻ
+                          </span>
+                        )}
+                        <span>
+                          {loan.className} · {loan.studentName}
+                        </span>
                       </div>
-                      <div className="text-xs text-slate-500">Niên khóa: {loan.schoolYear}</div>
+                      <div className="mt-0.5 text-xs text-slate-500">
+                        Niên khóa: {loan.schoolYear}
+                        {loan.loanType === 'WHOLE_CLASS' && loan.quantity
+                          ? ` · ${loan.quantity} quyển`
+                          : ''}
+                      </div>
                     </td>
                     <td className="py-3 pr-4">
                       <div className="font-medium text-slate-900">{loan.teacherNameSnapshot}</div>

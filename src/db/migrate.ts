@@ -6,9 +6,12 @@ import {
   buildLoanSearchText,
   buildUserSearchText,
 } from '@/lib/domain/search';
+import { buildClassYearKey } from '@/lib/domain/record-identity';
 
-async function backfillSearchColumns(client: Client): Promise<void> {
-  const userRows = await client.execute(
+type SqlExecutor = Pick<Client, 'execute'>;
+
+async function backfillSearchColumns(executor: SqlExecutor): Promise<void> {
+  const userRows = await executor.execute(
     "SELECT id, username, full_name, phone, unit FROM users WHERE search_text = ''"
   );
   for (const row of userRows.rows) {
@@ -18,13 +21,13 @@ async function backfillSearchColumns(client: Client): Promise<void> {
       phone: row.phone !== null && row.phone !== undefined ? String(row.phone) : null,
       unit: row.unit !== null && row.unit !== undefined ? String(row.unit) : null,
     });
-    await client.execute({
+    await executor.execute({
       sql: 'UPDATE users SET search_text = ? WHERE id = ?',
       args: [searchText, Number(row.id)],
     });
   }
 
-  const loanRows = await client.execute(
+  const loanRows = await executor.execute(
     "SELECT id, student_name, class_name, school_year, teacher_name_snapshot, teacher_unit_snapshot, teacher_phone_snapshot FROM loan_records WHERE search_text = '' OR class_name_norm = ''"
   );
   for (const row of loanRows.rows) {
@@ -44,13 +47,13 @@ async function backfillSearchColumns(client: Client): Promise<void> {
           ? String(row.teacher_phone_snapshot)
           : null,
     });
-    await client.execute({
+    await executor.execute({
       sql: 'UPDATE loan_records SET class_name_norm = ?, search_text = ? WHERE id = ?',
       args: [classNameNorm, searchText, Number(row.id)],
     });
   }
 
-  const auditRows = await client.execute(
+  const auditRows = await executor.execute(
     "SELECT id, action, target_id, metadata_json FROM audit_logs WHERE search_text = ''"
   );
   for (const row of auditRows.rows) {
@@ -62,9 +65,25 @@ async function backfillSearchColumns(client: Client): Promise<void> {
           ? String(row.metadata_json)
           : null,
     });
-    await client.execute({
+    await executor.execute({
       sql: 'UPDATE audit_logs SET search_text = ? WHERE id = ?',
       args: [searchText, Number(row.id)],
+    });
+  }
+}
+
+async function backfillClassYearKeys(executor: SqlExecutor): Promise<void> {
+  const rows = await executor.execute(
+    "SELECT id, class_name, school_year FROM loan_records WHERE class_year_key = ''"
+  );
+  for (const row of rows.rows) {
+    const classYearKey = buildClassYearKey(
+      String(row.class_name ?? ''),
+      String(row.school_year ?? '')
+    );
+    await executor.execute({
+      sql: 'UPDATE loan_records SET class_year_key = ? WHERE id = ?',
+      args: [classYearKey, Number(row.id)],
     });
   }
 }
@@ -85,7 +104,6 @@ export async function runMigrations(client: Client): Promise<string[]> {
   for (const migration of MIGRATIONS) {
     if (applied.has(migration.name)) continue;
 
-    let appliedNow = false;
     const tx = await client.transaction('write');
     try {
       // Kiểm tra lại bên trong write transaction để tránh race condition khi 2 instance cold-start song song
@@ -101,12 +119,21 @@ export async function runMigrations(client: Client): Promise<string[]> {
       for (const stmt of migration.statements) {
         await tx.execute(stmt);
       }
+
+      // Chạy backfill ngay bên trong cùng write transaction trước khi ghi _migrations
+      // để đảm bảo tính nguyên tử (atomic) nếu mạng tới Turso bị gián đoạn giữa chừng.
+      if (migration.name === '0001_turso_search_and_ratelimit.sql') {
+        await backfillSearchColumns(tx);
+      }
+      if (migration.name === '0002_loan_type_and_whole_class.sql') {
+        await backfillClassYearKeys(tx);
+      }
+
       await tx.execute({
         sql: 'INSERT OR IGNORE INTO _migrations (name, applied_at) VALUES (?, ?)',
         args: [migration.name, new Date().toISOString()],
       });
       await tx.commit();
-      appliedNow = true;
       newlyApplied.push(migration.name);
     } catch (err) {
       try {
@@ -115,10 +142,6 @@ export async function runMigrations(client: Client): Promise<string[]> {
         // Bỏ qua nếu transaction đã đóng
       }
       throw err;
-    }
-
-    if (appliedNow && migration.name === '0001_turso_search_and_ratelimit.sql') {
-      await backfillSearchColumns(client);
     }
   }
 

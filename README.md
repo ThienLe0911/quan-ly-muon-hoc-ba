@@ -1,17 +1,17 @@
 # Sổ Học Bạ — Quản Lý Mượn Trả Học Bạ Trường Tiểu Học
 
-Ứng dụng web gọn nhẹ phục vụ văn phòng Trường Tiểu học quản lý việc mượn – trả học bạ giữa **Giáo viên** và **Admin (Văn thư)**, tự động cảnh báo **Danh sách đỏ quá hạn** và lưu vết nhật ký thao tác. Triển khai trực tiếp trên **Vercel** với cơ sở dữ liệu cloud **Turso (libSQL)** — không cần cài đặt Docker hay phần mềm máy chủ trên máy tính của trường.
+Ứng dụng web gọn nhẹ phục vụ văn phòng Trường Tiểu học quản lý việc mượn – trả học bạ giữa **Giáo viên** và **Admin (Giáo vụ)**, hỗ trợ cả **mượn toàn bộ lớp** và **mượn riêng lẻ học sinh**, tự động cảnh báo **Danh sách đỏ quá hạn** và lưu vết nhật ký thao tác. Triển khai trực tiếp trên **Vercel** với cơ sở dữ liệu cloud **Turso (libSQL)** — không cần cài đặt Docker hay phần mềm máy chủ trên máy tính của trường.
 
 ## Tính năng chính
 
 - **Vai trò Giáo viên (`/giao-vien`):**
-  - Tự tạo phiếu mượn học bạ định danh bằng `Lớp + Tên học sinh + Niên khóa` (`YYYY-YYYY`).
+  - Tự tạo phiếu mượn học bạ theo 2 hình thức: **Mượn toàn bộ của 1 lớp** (`Lớp + Niên khóa + Số lượng tùy chọn`) hoặc **Mượn riêng lẻ học sinh** (`Lớp + Tên học sinh + Niên khóa`).
   - Tự động lưu thông tin giáo viên mượn, ngày giờ mượn và gợi ý hạn trả mặc định (có thể chọn hạn trả khác trong giới hạn cho phép).
-  - Chặn mượn trùng nếu học bạ đang được giáo viên khác mượn chưa trả.
+  - Chặn mượn trùng và chặn trùng chéo 2 chiều giữa mượn cả lớp và mượn lẻ cùng lớp + niên khóa.
   - Theo dõi danh sách học bạ đang mượn và lịch sử đã trả của chính mình (phân trang phía server).
-- **Vai trò Admin / Văn thư (`/admin`):**
+- **Vai trò Admin / Giáo vụ (`/admin`):**
   - **KPI tổng quan & Danh sách đỏ quá hạn:** tự động liệt kê các hồ sơ lố hạn trả từ 1 ngày trở lên, sắp xếp theo mức độ khẩn cấp.
-  - **3 góc nhìn theo dõi:** Danh sách mượn đầy đủ (lọc theo trạng thái, giáo viên, lớp, niên khóa) · Danh sách theo thời gian mượn · Danh sách theo độ lố hạn cần lưu ý (Nghiêm trọng `≥ 8` ngày, Vừa `4–7` ngày, Nhẹ `1–3` ngày, Đến hạn hôm nay, Sắp đến hạn).
+  - **3 góc nhìn theo dõi:** Danh sách mượn đầy đủ (lọc theo trạng thái, loại mượn, giáo viên, lớp, niên khóa) · Danh sách theo thời gian mượn · Danh sách theo độ lố hạn cần lưu ý (Nghiêm trọng `≥ 8` ngày, Vừa `4–7` ngày, Nhẹ `1–3` ngày, Đến hạn hôm nay, Sắp đến hạn).
   - **Chỉ Admin được xác nhận đã trả** học bạ hoặc hủy phiếu nhập nhầm.
   - Quản lý tài khoản giáo viên (`/admin/giao-vien`), cấu hình hạn mượn (`/admin/cai-dat`) và xem nhật ký thao tác (`/admin/nhat-ky`).
 
@@ -29,9 +29,9 @@
    - `TURSO_DATABASE_URL` = URL database Turso ở Bước 1
    - `TURSO_AUTH_TOKEN` = Token database Turso ở Bước 1
    - `TZ` = `Asia/Ho_Chi_Minh`
-   - `SEED_ADMIN_USERNAME` = `admin` (hoặc tên đăng nhập văn thư mong muốn)
+   - `SEED_ADMIN_USERNAME` = `admin` (hoặc tên đăng nhập Giáo vụ mong muốn)
    - `SEED_ADMIN_PASSWORD` = *(đặt mật khẩu mạnh riêng của nhà trường)*
-   - `SEED_ADMIN_NAME` = `Văn thư nhà trường`
+   - `SEED_ADMIN_NAME` = `Giáo vụ nhà trường`
    - `SEED_ADMIN_MUST_CHANGE_PASSWORD` = `true` (nên bật để buộc đổi mật khẩu ở lần đăng nhập đầu)
    - *(Lưu ý: Trên Vercel, `AUTH_COOKIE_SECURE` và `TRUST_PROXY` tự động bật `true`, không cần cấu hình thêm).*
 3. Bấm **Deploy**. Ở lần truy cập đầu tiên (hoặc khi chạy `npm run db:migrate && npm run db:seed` trỏ vào Turso), hệ thống tự động khởi tạo bảng, chỉ mục và tài khoản Admin ban đầu theo cơ chế idempotent.

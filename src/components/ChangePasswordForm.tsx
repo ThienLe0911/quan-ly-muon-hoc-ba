@@ -74,7 +74,7 @@ export function ChangePasswordForm({ role, mustChangePassword }: ChangePasswordF
 
       {mustChangePassword && (
         <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-3.5 py-2.5 text-sm text-amber-800">
-          Tài khoản của bạn đang dùng mật khẩu tạm do văn thư cấp/đặt lại. Vui lòng đổi mật khẩu mới để tiếp tục sử dụng hệ thống.
+          Tài khoản của bạn đang dùng mật khẩu tạm do Giáo vụ cấp/đặt lại. Vui lòng đổi mật khẩu mới để tiếp tục sử dụng hệ thống.
         </div>
       )}
 
